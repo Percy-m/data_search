@@ -38,16 +38,16 @@ node_modules/
 npm-debug.log*
 
 # Database & Runtime data files (ClickHouse local etc.)
-back-end/access/
-back-end/cores/
-back-end/data/
-back-end/flags/
-back-end/format_schemas/
-back-end/metadata/
-back-end/metadata_dropped/
-back-end/preprocessed_configs/
-back-end/store/
-back-end/tmp/
-back-end/user_files/
-back-end/status
-back-end/uuid
+access/
+cores/
+data/
+flags/
+format_schemas/
+metadata/
+metadata_dropped/
+preprocessed_configs/
+store/
+tmp/
+user_files/
+status
+uuid
