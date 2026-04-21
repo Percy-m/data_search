@@ -23,8 +23,11 @@ The system strictly follows a **Ports and Adapters (Hexagonal) Architecture** to
 
 ## Query & Drill-down Design
 
-- **AST over SQL**: The query system uses a structured AST (dimensions, metrics, filters) defined via Pydantic in `back-end/core/models.py`. Avoid passing raw SQL strings through the service layer.
-- **Generic Drill-down**: Drill-down logic (`QueryService.drill_down`) is a pure structural transformation. It replaces dimensions and appends current-level filters to the base query, keeping it independent of specific tables or business fields.
+- **AST over SQL**: The query system uses a structured AST (dimensions, metrics, filters) defined via Pydantic in `back-end/core/models.py`. 
+- **Raw SQL & sqlglot**: While AST is preferred, users can execute Raw SQL. To support secure interactions (like drill-through/viewing details) on Raw SQL results, the backend uses `sqlglot` to parse Raw SQL strings safely, extracting contexts like `FROM` and `WHERE` without relying on fragile frontend regex.
+- **Drill-down vs Drill-through**:
+  - **Drill-down (下钻)**: A structural transformation replacing dimensions and appending current-level filters to a base AST query.
+  - **Drill-through (明细穿透)**: Parses a raw SQL query using `sqlglot` to extract its base table and conditions, then appends row-level filters to generate a `SELECT *` query with pagination for raw data inspection.
 
 ## Testing & Tooling
 
