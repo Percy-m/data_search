@@ -1,0 +1,53 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Database & Runtime data files (ClickHouse local etc.)
+back-end/access/
+back-end/cores/
+back-end/data/
+back-end/flags/
+back-end/format_schemas/
+back-end/metadata/
+back-end/metadata_dropped/
+back-end/preprocessed_configs/
+back-end/store/
+back-end/tmp/
+back-end/user_files/
+back-end/status
+back-end/uuid
