@@ -1,6 +1,8 @@
 import clickhouse_connect
+import sqlglot
+from sqlglot import exp
 from core.ports import DataSourcePort
-from core.models import QueryRequest, QueryResult, RawQueryRequest
+from core.models import QueryRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 
 class ClickHouseAdapter(DataSourcePort):
     def __init__(self, host: str, port: int, username: str, password: str, database: str):
@@ -53,6 +55,55 @@ class ClickHouseAdapter(DataSourcePort):
         columns = result.column_names
         data = [dict(zip(columns, row)) for row in result.result_rows]
         return QueryResult(columns=columns, data=data)
+
+    def execute_drill_through(self, request: DrillThroughRequest) -> DrillThroughResult:
+        try:
+            # Parse original SQL safely using sqlglot
+            ast = sqlglot.parse_one(request.raw_sql, read="clickhouse")
+            
+            # Create a new query extracting just the FROM and WHERE from original AST
+            from_node = ast.find(exp.From)
+            if not from_node:
+                raise ValueError("Could not extract FROM clause from the provided SQL")
+                
+            new_ast = exp.select("*").from_(from_node.this)
+            
+            # Carry over original WHERE conditions if any
+            where_node = ast.find(exp.Where)
+            if where_node:
+                new_ast = new_ast.where(where_node.this)
+            
+            # Add drill-down specific filters
+            for k, v in request.filters.items():
+                if isinstance(v, str):
+                    new_ast = new_ast.where(f"{k} = '{v}'")  # Simple handling, parameterization is safer but we construct sql here
+                elif v is not None:
+                    new_ast = new_ast.where(f"{k} = {v}")
+
+            # Generate base SQL for counting before limits are applied
+            base_sql = new_ast.sql(dialect="clickhouse")
+            count_sql = f"SELECT COUNT(*) AS total FROM ({base_sql})"
+            print(f"[ClickHouse] Executing Drill-through Count SQL: {count_sql}")
+            count_result = self.client.query(count_sql)
+            total = count_result.result_rows[0][0] if count_result.result_rows else 0
+
+            # Add limits for paginated actual data query
+            if request.limit is not None:
+                new_ast = new_ast.limit(request.limit)
+            if request.offset is not None:
+                new_ast = new_ast.offset(request.offset)
+                
+            data_sql = new_ast.sql(dialect="clickhouse")
+            print(f"[ClickHouse] Executing Drill-through Data SQL: {data_sql}")
+            
+            data_result = self.client.query(data_sql)
+            columns = data_result.column_names
+            data = [dict(zip(columns, row)) for row in data_result.result_rows]
+            
+            return DrillThroughResult(columns=columns, data=data, total=total)
+
+        except Exception as e:
+            raise Exception(f"Failed to generate/execute drill-through query: {e}")
 
     def test_connection(self) -> bool:
         try:

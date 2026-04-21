@@ -1,4 +1,4 @@
-from core.models import QueryRequest, DrillDownRequest, QueryResult, RawQueryRequest
+from core.models import QueryRequest, DrillDownRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 from core.ports import DataSourcePort
 
 class QueryService:
@@ -20,6 +20,13 @@ class QueryService:
         执行原生多表/复杂SQL查询
         """
         return self.data_source.execute_raw_query(request)
+
+    def drill_through(self, request: DrillThroughRequest) -> DrillThroughResult:
+        """
+        查看底层明细数据 (Drill-through)
+        利用后端AST安全解析SQL，避免前端正则暴露
+        """
+        return self.data_source.execute_drill_through(request)
 
     def drill_down(self, request: DrillDownRequest) -> QueryResult:
         """

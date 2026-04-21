@@ -29,3 +29,14 @@ class QueryResult(BaseModel):
 
 class RawQueryRequest(BaseModel):
     sql: str
+
+class DrillThroughRequest(BaseModel):
+    raw_sql: str
+    filters: Dict[str, Any]
+    limit: Optional[int] = 10
+    offset: Optional[int] = 0
+
+class DrillThroughResult(BaseModel):
+    columns: List[str]
+    data: List[Dict[str, Any]]
+    total: int

@@ -1,0 +1,37 @@
+/Users/ano4679/PycharmProjects/DataSearch/back-end/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+INFO:     Will watch for changes in these directories: ['/Users/ano4679/PycharmProjects/DataSearch/back-end']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [29294] using StatReload
+/Users/ano4679/PycharmProjects/DataSearch/back-end/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+INFO:     Started server process [29316]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[ClickHouse] Executing Raw SQL: SELECT country, city, count(*) as order_count, sum(revenue) as total_rev FROM bi_demo.orders GROUP BY country, city
+INFO:     127.0.0.1:55352 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55354 - "POST /api/v1/data/drill-through HTTP/1.1" 400 Bad Request
+WARNING:  StatReload detected changes in 'adapters/clickhouse.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [29316]
+/Users/ano4679/PycharmProjects/DataSearch/back-end/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+INFO:     Started server process [29409]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:55366 - "POST /api/v1/data/drill-through HTTP/1.1" 400 Bad Request
+WARNING:  StatReload detected changes in 'adapters/clickhouse.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [29409]
+/Users/ano4679/PycharmProjects/DataSearch/back-end/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+INFO:     Started server process [29495]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[ClickHouse] Executing Drill-through Count SQL: SELECT COUNT(*) AS total FROM (SELECT * FROM bi_demo.orders WHERE country = '中国')
+[ClickHouse] Executing Drill-through Data SQL: SELECT * FROM bi_demo.orders WHERE country = '中国' LIMIT 10 OFFSET 0
+INFO:     127.0.0.1:55470 - "POST /api/v1/data/drill-through HTTP/1.1" 200 OK

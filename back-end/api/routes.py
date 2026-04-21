@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from core.models import QueryRequest, DrillDownRequest, QueryResult, RawQueryRequest
+from core.models import QueryRequest, DrillDownRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 from core.factory import DataSourceFactory
 from services.query import QueryService
 import os
@@ -43,6 +43,13 @@ def execute_query(request: QueryRequest, service: QueryService = Depends(get_que
 def execute_raw_query(request: RawQueryRequest, service: QueryService = Depends(get_query_service)):
     try:
         return service.raw_query(request)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/drill-through", response_model=DrillThroughResult)
+def execute_drill_through(request: DrillThroughRequest, service: QueryService = Depends(get_query_service)):
+    try:
+        return service.drill_through(request)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -34,9 +34,9 @@
       >
         <el-table-column v-for="col in columns" :key="col" :prop="col" :label="col">
           <template #default="scope">
-            <!-- 如果是数字，我们认为它是指标，可以点击查看明细 -->
+            <!-- 只有被精确解析为聚合指标的列，才可以点击下钻 -->
             <span 
-              v-if="typeof scope.row[col] === 'number'" 
+              v-if="metricColumns.has(col)" 
               class="clickable-metric"
               title="点击查看此聚合结果的底层明细数据"
             >
@@ -87,11 +87,32 @@ import { ElMessage } from 'element-plus'
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1/data'
 
+// 解析 SQL 中 SELECT 子句，提取出按逗号分隔的表达式（忽略括号内的逗号）
+const splitSelectClause = (clause) => {
+  const parts = []
+  let current = ''
+  let parenDepth = 0
+  for (let i = 0; i < clause.length; i++) {
+    const char = clause[i]
+    if (char === '(') parenDepth++
+    else if (char === ')') parenDepth--
+    else if (char === ',' && parenDepth === 0) {
+      parts.push(current.trim())
+      current = ''
+      continue
+    }
+    current += char
+  }
+  if (current) parts.push(current.trim())
+  return parts
+}
+
 // === 主查询状态 ===
 const rawSql = ref('SELECT country, count(*) as order_count, sum(revenue) as total_rev \nFROM bi_demo.orders \nGROUP BY country')
 const loading = ref(false)
 const tableData = ref([])
 const columns = ref([])
+const metricColumns = ref(new Set()) // 存储被判定为聚合指标的列名
 
 // === 明细弹窗状态 ===
 const detailVisible = ref(false)
@@ -120,6 +141,32 @@ const executeMainQuery = async () => {
     const res = await axios.post(`${API_BASE}/query/raw`, { sql: rawSql.value })
     columns.value = res.data.columns
     tableData.value = res.data.data
+    
+    // 解析哪些列是聚合指标列，只有这些列允许下钻
+    metricColumns.value = new Set()
+    const sqlMatch = rawSql.value.match(/SELECT\s+([\s\S]+?)\s+FROM/i)
+    const selectClause = sqlMatch ? sqlMatch[1] : ''
+    const expressions = splitSelectClause(selectClause)
+    
+    columns.value.forEach(col => {
+      // 1. 如果列名本身就是函数形式，例如 count()
+      if (/^(count|sum|avg|max|min)\b/i.test(col)) {
+        metricColumns.value.add(col)
+        return
+      }
+      // 2. 检查 SQL 选择的表达式中，是否为聚合函数的别名
+      if (selectClause) {
+        const escapedCol = col.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const regex = new RegExp(`\\b(count|sum|avg|max|min)\\b\\s*\\([\\s\\S]*\\)\\s+(?:AS\\s+)?[\`"']?${escapedCol}[\`"']?$`, 'i')
+        for (const expr of expressions) {
+          if (regex.test(expr)) {
+            metricColumns.value.add(col)
+            break
+          }
+        }
+      }
+    })
+    
     ElMessage.success('查询成功')
   } catch (error) {
     ElMessage.error('SQL执行失败: ' + (error.response?.data?.detail || error.message))
@@ -135,61 +182,26 @@ const resetSql = () => {
 // === 处理单元格点击 (下钻明细) ===
 const handleCellClick = (row, column, cell, event) => {
   const colName = column.property
-  const cellValue = row[colName]
   
-  // 仅对数字类型的列响应点击
-  if (typeof cellValue !== 'number') return
+  // 仅对被判定为指标的列响应点击下钻
+  if (!metricColumns.value.has(colName)) return
 
-  // 1. 提取原始 SQL 中的 FROM 子句 (支持简单的正则提取)
-  const sql = rawSql.value.trim()
-  const fromMatch = sql.match(/FROM\s+([\s\S]+?)(?:\s+GROUP\s+BY|\s+ORDER\s+BY|\s+LIMIT|$)/i)
-  
-  if (!fromMatch) {
-    ElMessage.warning('当前 SQL 格式无法解析出基础表，无法查看明细')
-    return
-  }
-  
-  let fromClause = fromMatch[1].trim()
-
-  // 2. 构造 WHERE 条件 (将同行中的维度作为过滤条件)
-  const conditions = []
-  const filtersDisplay = {} // 用于弹窗顶部展示
+  // 构造 WHERE 条件字典 (将同行中的维度作为过滤条件)
+  const filtersMap = {}
   
   for (const key in row) {
-    // 跳过当前点击的指标列
-    if (key === colName) continue
-    // 粗略过滤掉其他看起来像指标的列
-    if (/^(count|sum|avg|max|min|revenue|profit|margin|cnt|total)/i.test(key)) continue
+    // 只要是被判定为指标的列，就全部跳过，不作为 WHERE 过滤条件
+    if (metricColumns.value.has(key)) continue
     
     const val = row[key]
     if (val === null || val === undefined) continue
     
-    filtersDisplay[key] = val
-    if (typeof val === 'string') {
-      // 避免单引号导致 SQL 注入/语法错误，简单转义
-      const safeVal = val.replace(/'/g, "\\'")
-      conditions.push(`${key} = '${safeVal}'`)
-    } else {
-      conditions.push(`${key} = ${val}`)
-    }
-  }
-
-  let whereClause = conditions.length > 0 ? conditions.join(' AND ') : ''
-  
-  // 如果原 SQL 已经自带 WHERE，则拼接 AND
-  if (whereClause) {
-    if (fromClause.toUpperCase().includes(' WHERE ')) {
-      whereClause = ` AND ${whereClause}`
-    } else {
-      whereClause = ` WHERE ${whereClause}`
-    }
+    filtersMap[key] = val
   }
 
   // 保存上下文
   currentContext.value = {
-    fromClause,
-    whereClause,
-    filters: filtersDisplay
+    filters: filtersMap
   }
 
   // 重置分页并打开弹窗
@@ -205,29 +217,20 @@ const loadDetailData = async (page = 1) => {
   detailPage.value = page
   detailLoading.value = true
   
-  const { fromClause, whereClause } = currentContext.value
+  const { filters } = currentContext.value
   const offset = (detailPage.value - 1) * detailPageSize.value
   
-  // 构造查询总数的 SQL
-  const countSql = `SELECT count(*) as total FROM ${fromClause} ${whereClause}`
-  // 构造查询当前页明细的 SQL
-  const dataSql = `SELECT * FROM ${fromClause} ${whereClause} LIMIT ${detailPageSize.value} OFFSET ${offset}`
-
   try {
-    // 并行请求总数和明细数据
-    const [countRes, dataRes] = await Promise.all([
-      axios.post(`${API_BASE}/query/raw`, { sql: countSql }),
-      axios.post(`${API_BASE}/query/raw`, { sql: dataSql })
-    ])
+    const res = await axios.post(`${API_BASE}/drill-through`, {
+      raw_sql: rawSql.value.trim(),
+      filters: filters,
+      limit: detailPageSize.value,
+      offset: offset
+    })
     
-    // 解析总数
-    if (countRes.data.data.length > 0) {
-      detailTotal.value = Number(countRes.data.data[0].total)
-    }
-    
-    // 解析明细数据
-    detailColumns.value = dataRes.data.columns
-    detailData.value = dataRes.data.data
+    detailTotal.value = res.data.total
+    detailColumns.value = res.data.columns
+    detailData.value = res.data.data
     
   } catch (error) {
     ElMessage.error('明细数据加载失败: ' + (error.response?.data?.detail || error.message))

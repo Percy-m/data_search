@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .models import QueryRequest, QueryResult, RawQueryRequest
+from .models import QueryRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 
 class DataSourcePort(ABC):
     """
@@ -12,6 +12,10 @@ class DataSourcePort(ABC):
 
     @abstractmethod
     def execute_raw_query(self, query: RawQueryRequest) -> QueryResult:
+        pass
+        
+    @abstractmethod
+    def execute_drill_through(self, request: DrillThroughRequest) -> DrillThroughResult:
         pass
     
     @abstractmethod
