@@ -4,7 +4,7 @@
 
 - **Backend (Python 3.9 + FastAPI)**:
   - Located in the `back-end/` directory.
-  - Run with: `cd back-end && .venv/bin/python main.py` or `cd back-end && .venv/bin/uvicorn main:app --reload`.
+  - Run with: `cd back-end && .venv/bin/python main.py` or `cd back-end && .venv/bin/python -m uvicorn main:app --reload`.
   - Use the local `back-end/.venv` directory for all Python package management and command execution.
 - **Frontend (Vue 3 + Vite)**:
   - Located in the `front-end/` directory.
