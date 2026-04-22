@@ -1,91 +1,140 @@
 <template>
-  <el-card class="dashboard-card">
-    <div class="header-section">
-      <h2>统一数据分析控制台</h2>
-      <p class="subtitle">支持标准数据明细查询、多表 JOIN、聚合分析。点击结果中的<strong>数值指标</strong>即可自动下钻查看底层明细数据。</p>
-    </div>
-
-    <!-- SQL 输入区 -->
-    <div class="query-box">
-      <el-input
-        v-model="rawSql"
-        type="textarea"
-        :rows="6"
-        placeholder="请输入 SQL 语句 (例如: SELECT country, city, count(*) as order_count, sum(revenue) as total_rev FROM bi_demo.orders GROUP BY country, city)"
-        class="sql-input"
-      />
-      <div class="action-bar">
-        <el-button type="primary" size="large" @click="executeMainQuery" :loading="loading">
-          执行查询
-        </el-button>
-        <el-button @click="resetSql" size="large">重置</el-button>
+  <el-container class="dashboard-container">
+    <!-- 左侧：固化查询列表 -->
+    <el-aside width="300px" class="saved-queries-aside">
+      <div class="aside-header">
+        <h3>已固化查询</h3>
       </div>
-    </div>
+      <el-menu default-active="" class="saved-queries-menu">
+        <el-menu-item 
+          v-for="query in savedQueries" 
+          :key="query.id" 
+          :index="String(query.id)"
+          @click="loadSavedQuery(query)"
+        >
+          <div class="menu-item-content">
+            <span class="query-name" :title="query.name">{{ query.name }}</span>
+            <el-button type="danger" link icon="Delete" @click.stop="deleteSavedQuery(query.id)" title="删除"></el-button>
+          </div>
+        </el-menu-item>
+        <div v-if="savedQueries.length === 0" class="empty-text">暂无固化查询</div>
+      </el-menu>
+    </el-aside>
 
-    <!-- 主查询结果表 -->
-    <div class="result-box" v-if="columns.length > 0">
-      <el-table 
-        :data="tableData" 
-        border 
-        stripe 
-        style="width: 100%" 
-        v-loading="loading"
-        @cell-click="handleCellClick"
-      >
-        <el-table-column v-for="col in columns" :key="col" :prop="col" :label="col">
-          <template #default="scope">
-            <!-- 只有被精确解析为聚合指标的列，才可以点击下钻 -->
-            <span 
-              v-if="metricColumns.has(col)" 
-              class="clickable-metric"
-              title="点击查看此聚合结果的底层明细数据"
-            >
-              {{ scope.row[col] }}
+    <!-- 右侧：主要工作区 -->
+    <el-main>
+      <el-card class="dashboard-card">
+        <div class="header-section">
+          <h2>统一数据分析控制台</h2>
+          <p class="subtitle">支持标准数据明细查询、多表 JOIN、聚合分析。点击结果中的<strong>数值指标</strong>即可自动下钻查看底层明细数据。</p>
+        </div>
+
+        <!-- SQL 输入区 -->
+        <div class="query-box">
+          <el-input
+            v-model="rawSql"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入 SQL 语句 (例如: SELECT country, city, count(*) as order_count, sum(revenue) as total_rev FROM bi_demo.orders GROUP BY country, city)"
+            class="sql-input"
+          />
+          <div class="action-bar">
+            <el-button type="primary" size="large" @click="executeMainQuery" :loading="loading">
+              执行查询
+            </el-button>
+            <el-button @click="showSaveDialog" size="large" type="success" plain>固化当前查询</el-button>
+            <el-button @click="resetSql" size="large">重置</el-button>
+          </div>
+        </div>
+
+        <!-- 主查询结果表 -->
+        <div class="result-box" v-if="columns.length > 0">
+          <el-table 
+            :data="tableData" 
+            border 
+            stripe 
+            style="width: 100%" 
+            v-loading="loading"
+            @cell-click="handleCellClick"
+          >
+            <el-table-column v-for="col in columns" :key="col" :prop="col" :label="col">
+              <template #default="scope">
+                <span 
+                  v-if="metricColumns.has(col)" 
+                  class="clickable-metric"
+                  title="点击查看此聚合结果的底层明细数据"
+                >
+                  {{ scope.row[col] }}
+                </span>
+                <span v-else>{{ scope.row[col] }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 数据明细下钻弹窗 -->
+        <el-dialog
+          v-model="detailVisible"
+          title="指标底层明细数据"
+          width="85%"
+          destroy-on-close
+        >
+          <div class="detail-context">
+            <el-tag v-for="(val, key) in currentContext.filters" :key="key" style="margin-right: 10px; margin-bottom: 10px;" type="success">
+              {{ key }}: {{ val }}
+            </el-tag>
+          </div>
+          
+          <el-table :data="detailData" border stripe height="400" v-loading="detailLoading">
+            <el-table-column v-for="col in detailColumns" :key="col" :prop="col" :label="col" show-overflow-tooltip />
+          </el-table>
+          
+          <div class="pagination-box">
+            <el-pagination
+              background
+              layout="total, prev, pager, next"
+              :total="detailTotal"
+              :page-size="detailPageSize"
+              :current-page="detailPage"
+              @current-change="loadDetailData"
+            />
+          </div>
+        </el-dialog>
+        
+        <!-- 保存查询对话框 -->
+        <el-dialog v-model="saveDialogVisible" title="保存固化查询" width="30%">
+          <el-form @submit.prevent>
+            <el-form-item label="查询名称">
+              <el-input v-model="saveQueryName" placeholder="请输入业务标识名称" />
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <span class="dialog-footer">
+              <el-button @click="saveDialogVisible = false">取消</el-button>
+              <el-button type="primary" @click="saveCurrentQuery" :loading="savingQuery">保存</el-button>
             </span>
-            <span v-else>{{ scope.row[col] }}</span>
           </template>
-        </el-table-column>
-      </el-table>
-    </div>
+        </el-dialog>
 
-    <!-- 数据明细下钻弹窗 -->
-    <el-dialog
-      v-model="detailVisible"
-      title="指标底层明细数据"
-      width="85%"
-      destroy-on-close
-    >
-      <div class="detail-context">
-        <el-tag v-for="(val, key) in currentContext.filters" :key="key" style="margin-right: 10px; margin-bottom: 10px;" type="success">
-          {{ key }}: {{ val }}
-        </el-tag>
-      </div>
-      
-      <el-table :data="detailData" border stripe height="400" v-loading="detailLoading">
-        <el-table-column v-for="col in detailColumns" :key="col" :prop="col" :label="col" show-overflow-tooltip />
-      </el-table>
-      
-      <div class="pagination-box">
-        <el-pagination
-          background
-          layout="total, prev, pager, next"
-          :total="detailTotal"
-          :page-size="detailPageSize"
-          :current-page="detailPage"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </el-dialog>
-
-  </el-card>
+      </el-card>
+    </el-main>
+  </el-container>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete } from '@element-plus/icons-vue'
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1/data'
+const META_API_BASE = 'http://127.0.0.1:8000/api/v1/saved-queries'
+
+// === 固化查询状态 ===
+const savedQueries = ref([])
+const saveDialogVisible = ref(false)
+const saveQueryName = ref('')
+const savingQuery = ref(false)
 
 // 解析 SQL 中 SELECT 子句，提取出按逗号分隔的表达式（忽略括号内的逗号）
 const splitSelectClause = (clause) => {
@@ -108,11 +157,11 @@ const splitSelectClause = (clause) => {
 }
 
 // === 主查询状态 ===
-const rawSql = ref('SELECT country, count(*) as order_count, sum(revenue) as total_rev \nFROM bi_demo.orders \nGROUP BY country')
+const rawSql = ref('SELECT o.country, count(DISTINCT o.order_id) as unique_orders, count(DISTINCT c.customer_id) as unique_customers, count(DISTINCT s.shipping_company) as active_carriers, sum(o.revenue) as total_revenue \nFROM bi_demo.orders o \nJOIN bi_demo.customers c ON o.customer_id = c.customer_id \nJOIN bi_demo.shipping s ON o.order_id = s.order_id \nGROUP BY o.country \nORDER BY total_revenue DESC')
 const loading = ref(false)
 const tableData = ref([])
 const columns = ref([])
-const metricColumns = ref(new Set()) // 存储被判定为聚合指标的列名
+const metricColumns = ref(new Set()) 
 
 // === 明细弹窗状态 ===
 const detailVisible = ref(false)
@@ -123,12 +172,75 @@ const detailTotal = ref(0)
 const detailPage = ref(1)
 const detailPageSize = ref(10)
 
-// 存储当前点击的上下文（用于分页）
 const currentContext = ref({
-  fromClause: '',
-  whereClause: '',
-  filters: {}
+  filters: {},
+  metric: ''
 })
+
+// === 获取固化查询列表 ===
+const fetchSavedQueries = async () => {
+  try {
+    const res = await axios.get(META_API_BASE + '/')
+    savedQueries.value = res.data
+  } catch (error) {
+    ElMessage.error('获取固化查询列表失败')
+  }
+}
+
+// === 载入固化查询并执行 ===
+const loadSavedQuery = (query) => {
+  rawSql.value = query.raw_sql
+  executeMainQuery()
+}
+
+// === 弹出保存对话框 ===
+const showSaveDialog = () => {
+  if (!rawSql.value.trim()) {
+    ElMessage.warning('没有可保存的 SQL 语句')
+    return
+  }
+  saveQueryName.value = ''
+  saveDialogVisible.value = true
+}
+
+// === 提交保存固化查询 ===
+const saveCurrentQuery = async () => {
+  if (!saveQueryName.value.trim()) {
+    ElMessage.warning('请输入名称')
+    return
+  }
+  savingQuery.value = true
+  try {
+    await axios.post(META_API_BASE + '/', {
+      name: saveQueryName.value.trim(),
+      raw_sql: rawSql.value.trim()
+    })
+    ElMessage.success('保存成功')
+    saveDialogVisible.value = false
+    fetchSavedQueries()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '保存失败')
+  } finally {
+    savingQuery.value = false
+  }
+}
+
+// === 删除固化查询 ===
+const deleteSavedQuery = (id) => {
+  ElMessageBox.confirm('确定要删除这条固化查询吗?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await axios.delete(`${META_API_BASE}/${id}`)
+      ElMessage.success('删除成功')
+      fetchSavedQueries()
+    } catch (error) {
+      ElMessage.error('删除失败')
+    }
+  }).catch(() => {})
+}
 
 // === 执行主查询 ===
 const executeMainQuery = async () => {
@@ -142,19 +254,17 @@ const executeMainQuery = async () => {
     columns.value = res.data.columns
     tableData.value = res.data.data
     
-    // 解析哪些列是聚合指标列，只有这些列允许下钻
+    // 解析哪些列是聚合指标列
     metricColumns.value = new Set()
     const sqlMatch = rawSql.value.match(/SELECT\s+([\s\S]+?)\s+FROM/i)
     const selectClause = sqlMatch ? sqlMatch[1] : ''
     const expressions = splitSelectClause(selectClause)
     
     columns.value.forEach(col => {
-      // 1. 如果列名本身就是函数形式，例如 count()
       if (/^(count|sum|avg|max|min)\b/i.test(col)) {
         metricColumns.value.add(col)
         return
       }
-      // 2. 检查 SQL 选择的表达式中，是否为聚合函数的别名
       if (selectClause) {
         const escapedCol = col.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         const regex = new RegExp(`\\b(count|sum|avg|max|min)\\b\\s*\\([\\s\\S]*\\)\\s+(?:AS\\s+)?[\`"']?${escapedCol}[\`"']?$`, 'i')
@@ -183,14 +293,11 @@ const resetSql = () => {
 const handleCellClick = (row, column, cell, event) => {
   const colName = column.property
   
-  // 仅对被判定为指标的列响应点击下钻
   if (!metricColumns.value.has(colName)) return
 
-  // 构造 WHERE 条件字典 (将同行中的维度作为过滤条件)
   const filtersMap = {}
   
   for (const key in row) {
-    // 只要是被判定为指标的列，就全部跳过，不作为 WHERE 过滤条件
     if (metricColumns.value.has(key)) continue
     
     const val = row[key]
@@ -199,25 +306,23 @@ const handleCellClick = (row, column, cell, event) => {
     filtersMap[key] = val
   }
 
-  // 保存上下文
   currentContext.value = {
     filters: filtersMap,
     metric: colName
   }
 
-  // 重置分页并打开弹窗
   detailPage.value = 1
   detailVisible.value = true
   
-  // 加载明细数据
-  loadDetailData(colName)
+  loadDetailData()
 }
 
 // === 加载分页明细数据 ===
 const loadDetailData = async (colName, page = 1) => {
   if (typeof colName === 'number') {
-    // 兼容处理：如果是分页组件触发的，第一个参数是 page
     page = colName
+    colName = currentContext.value.metric
+  } else if (!colName || typeof colName === 'object') {
     colName = currentContext.value.metric
   }
   
@@ -247,19 +352,54 @@ const loadDetailData = async (colName, page = 1) => {
   }
 }
 
-const handlePageChange = (page) => {
-  loadDetailData(page)
-}
-
 onMounted(() => {
-  // 初始加载一次默认数据
+  fetchSavedQueries()
   executeMainQuery()
 })
 </script>
 
 <style scoped>
-.dashboard-card {
+.dashboard-container {
   min-height: 85vh;
+}
+.saved-queries-aside {
+  background-color: #ffffff;
+  border-right: 1px solid #dcdfe6;
+  padding-right: 1px;
+}
+.aside-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid #ebeef5;
+  background-color: #f8f9fa;
+}
+.aside-header h3 {
+  margin: 0;
+  color: #303133;
+  font-size: 16px;
+}
+.saved-queries-menu {
+  border-right: none;
+}
+.menu-item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.query-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+.empty-text {
+  text-align: center;
+  color: #909399;
+  padding: 30px 0;
+  font-size: 14px;
+}
+.dashboard-card {
+  height: 100%;
 }
 .header-section {
   margin-bottom: 20px;

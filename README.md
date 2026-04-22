@@ -42,6 +42,15 @@
 
 > **注:** 关于上述测试表的完整字段字典（Schema）以及适合用来测试复杂“明细穿透”功能的高阶 SQL 示例，请参阅 [table.md](./table.md) 文档。
 
+### 启动元数据数据库 (PostgreSQL)
+
+本项目引入了 PostgreSQL 用于存储用户的固化查询元数据。请使用 Docker 启动服务：
+
+```bash
+docker-compose up -d
+```
+这会在后台启动一个名为 `bi_metadata_db` 的容器，暴露本地 `5432` 端口。
+
 ### 启动后端 (FastAPI)
 
 后端自带隔离的虚拟环境 `.venv`。
