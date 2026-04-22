@@ -61,12 +61,34 @@ class ClickHouseAdapter(DataSourcePort):
             # Parse original SQL safely using sqlglot
             ast = sqlglot.parse_one(request.raw_sql, read="clickhouse")
             
+            # Find the targeted metric if specified
+            target_expr = None
+            if request.clicked_metric:
+                for select in ast.selects:
+                    if isinstance(select, exp.Alias) and select.alias == request.clicked_metric:
+                        target_expr = select.this
+                    elif isinstance(select, exp.Column) and select.name == request.clicked_metric:
+                        target_expr = select
+                        
+            # Determine SELECT projection based on the metric clicked
+            select_projection = "*"
+            if target_expr:
+                if isinstance(target_expr, exp.Count):
+                    # For COUNT(DISTINCT col), we want to select that specific col to show the unique entities
+                    distinct_node = target_expr.find(exp.Distinct)
+                    if distinct_node and distinct_node.expressions:
+                        select_projection = f"DISTINCT {distinct_node.expressions[0].sql(dialect='clickhouse')}"
+                elif isinstance(target_expr, (exp.Sum, exp.Avg, exp.Max, exp.Min)):
+                    # For sum/avg/max/min, it's often useful to just show the underlying detail records for that column and related context
+                    # Still fallback to select * for now, but in advanced BI tools we might reorder or filter columns
+                    select_projection = "*"
+
             # Create a new query extracting just the FROM and WHERE from original AST
             from_node = ast.find(exp.From)
             if not from_node:
                 raise ValueError("Could not extract FROM clause from the provided SQL")
                 
-            new_ast = exp.select("*").from_(from_node.this)
+            new_ast = sqlglot.parse_one(f"SELECT {select_projection} FROM {from_node.this.sql(dialect='clickhouse')}", read="clickhouse")
             
             # Carry over original JOINs if any
             joins = list(ast.find_all(exp.Join))
@@ -87,6 +109,8 @@ class ClickHouseAdapter(DataSourcePort):
 
             # Generate base SQL for counting before limits are applied
             base_sql = new_ast.sql(dialect="clickhouse")
+            
+            # For count queries, we must count the subquery to get total rows, especially important for DISTINCT projections
             count_sql = f"SELECT COUNT(*) AS total FROM ({base_sql})"
             print(f"[ClickHouse] Executing Drill-through Count SQL: {count_sql}")
             count_result = self.client.query(count_sql)

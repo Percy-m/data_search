@@ -201,7 +201,8 @@ const handleCellClick = (row, column, cell, event) => {
 
   // 保存上下文
   currentContext.value = {
-    filters: filtersMap
+    filters: filtersMap,
+    metric: colName
   }
 
   // 重置分页并打开弹窗
@@ -209,11 +210,17 @@ const handleCellClick = (row, column, cell, event) => {
   detailVisible.value = true
   
   // 加载明细数据
-  loadDetailData()
+  loadDetailData(colName)
 }
 
 // === 加载分页明细数据 ===
-const loadDetailData = async (page = 1) => {
+const loadDetailData = async (colName, page = 1) => {
+  if (typeof colName === 'number') {
+    // 兼容处理：如果是分页组件触发的，第一个参数是 page
+    page = colName
+    colName = currentContext.value.metric
+  }
+  
   detailPage.value = page
   detailLoading.value = true
   
@@ -224,6 +231,7 @@ const loadDetailData = async (page = 1) => {
     const res = await axios.post(`${API_BASE}/drill-through`, {
       raw_sql: rawSql.value.trim(),
       filters: filters,
+      clicked_metric: colName,
       limit: detailPageSize.value,
       offset: offset
     })

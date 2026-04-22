@@ -27,11 +27,13 @@
    - **入参定义 (`DrillThroughRequest`)**：
      - `raw_sql`: 用户原始执行的 SQL 语句。
      - `filters`: 前端传递的当前行的维度数据字典（`Dict[str, Any]`），作为额外的过滤条件。
+     - `clicked_metric`: (新增) 用户当前点击的指标列别名，用于智能推断查询主体。
      - `limit` & `offset`: 分页参数。
    - **执行逻辑**：
-     - 后端接收到 `raw_sql` 后，通过 `sqlglot` 解析出基础的 AST（提取 FROM 和原有的 WHERE 条件）。
+     - 后端接收到 `raw_sql` 后，通过 `sqlglot` 解析出基础的 AST（提取 FROM, JOIN 和原有的 WHERE 条件）。
+     - **智能投影 (Smart Projection)**：根据 `clicked_metric` 的表达式类型动态决定查询内容。若为 `COUNT(DISTINCT field)`，则明细语句的投影变为 `SELECT DISTINCT field`；若是普通聚合，则退化为 `SELECT *` 获取底层大宽表。
      - 将前端传来的 `filters` 安全地转化为 AST 上的过滤条件，并与原有的 WHERE 条件进行 AND 合并。
-     - 剥离原 SQL 中的 `GROUP BY`, `ORDER BY`, `LIMIT`，并将 `SELECT ...` 替换为 `SELECT *`。
+     - 剥离原 SQL 中的 `GROUP BY`, `ORDER BY`, `LIMIT`。
      - 生成总数查询和明细查询的两条新 SQL 在数据库中执行，返回给前端。
 
 ### 阶段二：数据源适配器 (Adapter) 安全加固

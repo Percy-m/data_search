@@ -33,6 +33,7 @@ class RawQueryRequest(BaseModel):
 class DrillThroughRequest(BaseModel):
     raw_sql: str
     filters: Dict[str, Any]
+    clicked_metric: Optional[str] = None  # 用户点击的具体指标别名/列名
     limit: Optional[int] = 10
     offset: Optional[int] = 0
 
