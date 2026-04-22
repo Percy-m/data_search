@@ -1,9 +1,10 @@
 <template>
   <el-container class="dashboard-container">
-    <!-- 左侧：固化查询列表 -->
+    <!-- 左侧：数据看板列表 -->
     <el-aside width="300px" class="saved-queries-aside">
       <div class="aside-header">
-        <h3>已固化查询</h3>
+        <h3>我的数据看板</h3>
+        <el-button type="primary" size="small" icon="Plus" @click="startNewAnalysis" circle title="新建分析"></el-button>
       </div>
       <el-menu default-active="" class="saved-queries-menu">
         <el-menu-item 
@@ -14,10 +15,10 @@
         >
           <div class="menu-item-content">
             <span class="query-name" :title="query.name">{{ query.name }}</span>
-            <el-button type="danger" link icon="Delete" @click.stop="deleteSavedQuery(query.id)" title="删除"></el-button>
+            <el-button type="danger" link icon="Delete" @click.stop="deleteSavedQuery(query.id)" title="删除此看板"></el-button>
           </div>
         </el-menu-item>
-        <div v-if="savedQueries.length === 0" class="empty-text">暂无固化查询</div>
+        <div v-if="savedQueries.length === 0" class="empty-text">暂无保存的数据看板</div>
       </el-menu>
     </el-aside>
 
@@ -25,12 +26,17 @@
     <el-main>
       <el-card class="dashboard-card">
         <div class="header-section">
-          <h2>统一数据分析控制台</h2>
-          <p class="subtitle">支持标准数据明细查询、多表 JOIN、聚合分析。点击结果中的<strong>数值指标</strong>即可自动下钻查看底层明细数据。</p>
+          <div>
+            <h2>统一数据分析控制台</h2>
+            <p class="subtitle">支持标准数据明细查询、多表 JOIN、聚合分析。点击结果中的<strong>数值指标</strong>即可自动下钻查看底层明细数据。</p>
+          </div>
+          <div class="header-actions" v-if="isViewingSavedBoard">
+            <el-button type="info" plain icon="Edit" @click="toggleEditMode">查看 / 编辑 SQL</el-button>
+          </div>
         </div>
 
-        <!-- SQL 输入区 -->
-        <div class="query-box">
+        <!-- SQL 输入区 (阅览模式下隐藏) -->
+        <div class="query-box" v-show="!isViewingSavedBoard">
           <el-input
             v-model="rawSql"
             type="textarea"
@@ -42,8 +48,8 @@
             <el-button type="primary" size="large" @click="executeMainQuery" :loading="loading">
               执行查询
             </el-button>
-            <el-button @click="showSaveDialog" size="large" type="success" plain>固化当前查询</el-button>
-            <el-button @click="resetSql" size="large">重置</el-button>
+            <el-button @click="showSaveDialog" size="large" type="success" plain>保存为新看板</el-button>
+            <el-button @click="resetSql" size="large">重置示例</el-button>
           </div>
         </div>
 
@@ -101,11 +107,11 @@
           </div>
         </el-dialog>
         
-        <!-- 保存查询对话框 -->
-        <el-dialog v-model="saveDialogVisible" title="保存固化查询" width="30%">
+        <!-- 保存看板对话框 -->
+        <el-dialog v-model="saveDialogVisible" title="保存数据看板" width="30%">
           <el-form @submit.prevent>
-            <el-form-item label="查询名称">
-              <el-input v-model="saveQueryName" placeholder="请输入业务标识名称" />
+            <el-form-item label="看板名称">
+              <el-input v-model="saveQueryName" placeholder="请输入看板业务名称" />
             </el-form-item>
           </el-form>
           <template #footer>
@@ -125,16 +131,17 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete } from '@element-plus/icons-vue'
+import { Delete, Plus, Edit } from '@element-plus/icons-vue'
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1/data'
 const META_API_BASE = 'http://127.0.0.1:8000/api/v1/saved-queries'
 
-// === 固化查询状态 ===
+// === 看板状态 ===
 const savedQueries = ref([])
 const saveDialogVisible = ref(false)
 const saveQueryName = ref('')
 const savingQuery = ref(false)
+const isViewingSavedBoard = ref(false) // 是否处于看板阅览模式
 
 // 解析 SQL 中 SELECT 子句，提取出按逗号分隔的表达式（忽略括号内的逗号）
 const splitSelectClause = (clause) => {
@@ -187,10 +194,24 @@ const fetchSavedQueries = async () => {
   }
 }
 
-// === 载入固化查询并执行 ===
+// === 载入固化看板并执行 ===
 const loadSavedQuery = (query) => {
   rawSql.value = query.raw_sql
+  isViewingSavedBoard.value = true // 进入看板阅览模式，隐藏 SQL 输入框
   executeMainQuery()
+}
+
+// === 开启新分析 (退出阅览模式) ===
+const startNewAnalysis = () => {
+  isViewingSavedBoard.value = false
+  rawSql.value = ''
+  columns.value = []
+  tableData.value = []
+}
+
+// === 切换编辑模式 ===
+const toggleEditMode = () => {
+  isViewingSavedBoard.value = false
 }
 
 // === 弹出保存对话框 ===
@@ -403,6 +424,20 @@ onMounted(() => {
 }
 .header-section {
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.header-actions {
+  margin-top: 10px;
+}
+.aside-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid #ebeef5;
+  background-color: #f8f9fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .header-section h2 {
   margin: 0 0 10px 0;
