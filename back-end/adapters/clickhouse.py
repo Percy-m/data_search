@@ -74,10 +74,15 @@ class ClickHouseAdapter(DataSourcePort):
             select_projection = "*"
             if target_expr:
                 if isinstance(target_expr, exp.Count):
-                    # For COUNT(DISTINCT col), we want to select that specific col to show the unique entities
+                    # For COUNT(DISTINCT table.col), we want to project DISTINCT table.* to show all related info of that entity
                     distinct_node = target_expr.find(exp.Distinct)
                     if distinct_node and distinct_node.expressions:
-                        select_projection = f"DISTINCT {distinct_node.expressions[0].sql(dialect='clickhouse')}"
+                        col_expr = distinct_node.expressions[0]
+                        if isinstance(col_expr, exp.Column) and col_expr.args.get("table"):
+                            table_alias = col_expr.args["table"].sql(dialect="clickhouse")
+                            select_projection = f"DISTINCT {table_alias}.*"
+                        else:
+                            select_projection = f"DISTINCT {col_expr.sql(dialect='clickhouse')}"
                 elif isinstance(target_expr, (exp.Sum, exp.Avg, exp.Max, exp.Min)):
                     # For sum/avg/max/min, it's often useful to just show the underlying detail records for that column and related context
                     # Still fallback to select * for now, but in advanced BI tools we might reorder or filter columns
