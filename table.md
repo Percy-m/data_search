@@ -108,3 +108,22 @@ GROUP BY
     s.shipping_company
 ```
 **下钻测试点**：原 SQL 已经包含 `WHERE s.shipping_status = 'Delivered'` 的前置过滤条件，验证明细穿透时，后端 AST 解析器 (`sqlglot`) 是否能够成功保留这一条件，并叠加当前点击行的维度（如 `country`='中国', `membership_level`='Gold', `shipping_company`='顺丰速运'）一起进行安全过滤。
+
+### 示例 4: 跨实体的多维度指标聚合 (同一报表查看多对象 COUNT)
+在复杂的业务场景中，我们经常需要在同一个维度下，统计多个不同实体的数量（比如想同时看一个国家有多少个**独立的承运商**在发货，产生了多少笔**订单**，以及涉及了多少个**客户**）。这通常通过 `COUNT(DISTINCT ...)` 来实现。
+```sql
+SELECT 
+    o.country,
+    count(DISTINCT o.order_id) as unique_orders,
+    count(DISTINCT c.customer_id) as unique_customers,
+    count(DISTINCT s.shipping_company) as active_carriers,
+    sum(o.revenue) as total_revenue
+FROM bi_demo.orders o
+JOIN bi_demo.customers c ON o.customer_id = c.customer_id
+JOIN bi_demo.shipping s ON o.order_id = s.order_id
+GROUP BY 
+    o.country
+ORDER BY 
+    total_revenue DESC
+```
+**下钻测试点**：系统的前后端解析逻辑完美支持 `count(DISTINCT)` 等复杂函数的识别。无论你点击 `unique_orders`、`unique_customers` 还是 `active_carriers`，后端都会根据当前维度（如 `country`='中国'）进行安全关联穿透，在弹出的明细宽表中，你将能同时看到这批订单对应的客户信息以及承运商履约信息，用来还原这些 Count 结果背后的真实轨迹。
