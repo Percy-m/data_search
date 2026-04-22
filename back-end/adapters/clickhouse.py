@@ -68,6 +68,11 @@ class ClickHouseAdapter(DataSourcePort):
                 
             new_ast = exp.select("*").from_(from_node.this)
             
+            # Carry over original JOINs if any
+            joins = list(ast.find_all(exp.Join))
+            if joins:
+                new_ast.set("joins", joins)
+            
             # Carry over original WHERE conditions if any
             where_node = ast.find(exp.Where)
             if where_node:
