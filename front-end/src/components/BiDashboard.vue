@@ -30,8 +30,15 @@
             <h2>统一数据分析控制台</h2>
             <p class="subtitle">支持标准数据明细查询、多表 JOIN、聚合分析。点击结果中的<strong>数值指标</strong>即可自动下钻查看底层明细数据。</p>
           </div>
-          <div class="header-actions" v-if="isViewingSavedBoard">
-            <el-button type="info" plain icon="Edit" @click="toggleEditMode">查看 / 编辑 SQL</el-button>
+          <div class="header-actions" v-if="currentContext.loadedBoardId">
+            <el-button 
+              type="info" 
+              plain 
+              :icon="isViewingSavedBoard ? 'Edit' : 'View'" 
+              @click="toggleEditMode"
+            >
+              {{ isViewingSavedBoard ? '查看 / 编辑 SQL' : '退出编辑模式' }}
+            </el-button>
           </div>
         </div>
 
@@ -141,7 +148,7 @@ const savedQueries = ref([])
 const saveDialogVisible = ref(false)
 const saveQueryName = ref('')
 const savingQuery = ref(false)
-const isViewingSavedBoard = ref(false) // 是否处于看板阅览模式
+const isViewingSavedBoard = ref(false) // 是否处于看板阅览模式（隐藏输入框）
 
 // 解析 SQL 中 SELECT 子句，提取出按逗号分隔的表达式（忽略括号内的逗号）
 const splitSelectClause = (clause) => {
@@ -181,7 +188,8 @@ const detailPageSize = ref(10)
 
 const currentContext = ref({
   filters: {},
-  metric: ''
+  metric: '',
+  loadedBoardId: null // 记录当前载入的看板ID
 })
 
 // === 获取固化查询列表 ===
@@ -197,6 +205,7 @@ const fetchSavedQueries = async () => {
 // === 载入固化看板并执行 ===
 const loadSavedQuery = (query) => {
   rawSql.value = query.raw_sql
+  currentContext.value.loadedBoardId = query.id
   isViewingSavedBoard.value = true // 进入看板阅览模式，隐藏 SQL 输入框
   executeMainQuery()
 }
@@ -204,6 +213,7 @@ const loadSavedQuery = (query) => {
 // === 开启新分析 (退出阅览模式) ===
 const startNewAnalysis = () => {
   isViewingSavedBoard.value = false
+  currentContext.value.loadedBoardId = null
   rawSql.value = ''
   columns.value = []
   tableData.value = []
@@ -211,7 +221,7 @@ const startNewAnalysis = () => {
 
 // === 切换编辑模式 ===
 const toggleEditMode = () => {
-  isViewingSavedBoard.value = false
+  isViewingSavedBoard.value = !isViewingSavedBoard.value
 }
 
 // === 弹出保存对话框 ===
