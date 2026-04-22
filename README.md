@@ -34,7 +34,11 @@
 
 ## 3. 快速启动 (Getting Started)
 
-确保您的本地环境已经运行了 ClickHouse（默认监听 `localhost:8123`），并预先配置了本项目的演示数据库 (`bi_demo.orders`)。
+确保您的本地环境已经运行了 ClickHouse（默认监听 `localhost:8123`），并预先配置了本项目的演示数据库 (`bi_demo`)。
+数据库中包含了多张模拟业务表用于测试多表 JOIN 和高阶分析：
+- `orders` (订单事实表)
+- `customers` (客户维度表)
+- `shipping` (物流维度表)
 
 ### 启动后端 (FastAPI)
 
