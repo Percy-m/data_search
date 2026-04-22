@@ -36,6 +36,7 @@
             <div v-if="boardSelectedId" class="board-view">
               <div class="board-title-section">
                 <h2>{{ boardName }}</h2>
+                <el-button type="warning" plain icon="Filter" @click="openThresholdDialog">配置高亮阈值</el-button>
               </div>
               
               <el-table 
@@ -44,6 +45,7 @@
                 stripe 
                 style="width: 100%" 
                 v-loading="boardLoading"
+                :cell-style="getBoardCellStyle"
                 @cell-click="(row, col, cell, evt) => handleCellClick(row, col, boardSql, boardMetricColumns)"
               >
                 <el-table-column v-for="col in boardColumns" :key="col" :prop="col" :label="col">
@@ -158,6 +160,56 @@
       </template>
     </el-dialog>
 
+    <!-- 阈值高亮配置对话框 -->
+    <el-dialog v-model="thresholdDialogVisible" title="看板条件高亮配置" width="60%">
+      <div style="margin-bottom: 15px;">
+        <el-button type="primary" icon="Plus" @click="addThresholdRule" size="small">新增规则</el-button>
+      </div>
+      
+      <el-table :data="currentThresholds" border size="small">
+        <el-table-column label="目标列" width="180">
+          <template #default="scope">
+            <el-select v-model="scope.row.column" placeholder="选择列" size="small">
+              <el-option v-for="col in boardColumns" :key="col" :label="col" :value="col" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="条件" width="120">
+          <template #default="scope">
+            <el-select v-model="scope.row.operator" placeholder="条件" size="small">
+              <el-option label="大于 (>)" value=">" />
+              <el-option label="小于 (<)" value="<" />
+              <el-option label="等于 (=)" value="=" />
+              <el-option label="大于等于 (>=)" value=">=" />
+              <el-option label="小于等于 (<=)" value="<=" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="阈值" width="150">
+          <template #default="scope">
+            <el-input-number v-model="scope.row.value" :controls="false" style="width: 100%" size="small" />
+          </template>
+        </el-table-column>
+        <el-table-column label="背景色" width="100">
+          <template #default="scope">
+            <el-color-picker v-model="scope.row.color" show-alpha size="small" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="80" align="center">
+          <template #default="scope">
+            <el-button type="danger" link icon="Delete" @click="removeThresholdRule(scope.$index)"></el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="thresholdDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveThresholds" :loading="savingThresholds">保存配置</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -209,6 +261,11 @@ const currentContext = ref({
 const saveDialogVisible = ref(false)
 const saveQueryName = ref('')
 const savingQuery = ref(false)
+
+// === 阈值高亮配置状态 ===
+const thresholdDialogVisible = ref(false)
+const currentThresholds = ref([])
+const savingThresholds = ref(false)
 
 // 解析 SQL 中 SELECT 子句
 const splitSelectClause = (clause) => {
@@ -295,6 +352,8 @@ const loadSavedBoard = async (query) => {
   boardSelectedId.value = query.id
   boardName.value = query.name
   boardSql.value = query.raw_sql
+  // 初始化该看板对应的阈值规则
+  currentThresholds.value = Array.isArray(query.thresholds) ? JSON.parse(JSON.stringify(query.thresholds)) : []
   
   await executeQuery(boardSql.value, boardLoading, boardColumns, boardTableData, boardMetricColumns)
 }
@@ -325,7 +384,8 @@ const saveCurrentQuery = async () => {
   try {
     const res = await axios.post(META_API_BASE + '/', {
       name: saveQueryName.value.trim(),
-      raw_sql: editorSql.value.trim()
+      raw_sql: editorSql.value.trim(),
+      thresholds: []
     })
     ElMessage.success('保存成功')
     saveDialogVisible.value = false
@@ -359,6 +419,85 @@ const deleteSavedQuery = (id) => {
       ElMessage.error('删除失败')
     }
   }).catch(() => {})
+}
+
+// === 阈值高亮功能 ===
+const openThresholdDialog = () => {
+  if (!boardSelectedId.value) return
+  // Deep clone to avoid mutating state before save
+  const currentBoard = savedQueries.value.find(q => q.id === boardSelectedId.value)
+  if (currentBoard) {
+     currentThresholds.value = Array.isArray(currentBoard.thresholds) 
+        ? JSON.parse(JSON.stringify(currentBoard.thresholds)) 
+        : []
+  }
+  thresholdDialogVisible.value = true
+}
+
+const addThresholdRule = () => {
+  currentThresholds.value.push({
+    column: '',
+    operator: '>',
+    value: 0,
+    color: 'rgba(245, 108, 108, 0.2)' // Default light red
+  })
+}
+
+const removeThresholdRule = (index) => {
+  currentThresholds.value.splice(index, 1)
+}
+
+const saveThresholds = async () => {
+  if (!boardSelectedId.value) return
+  savingThresholds.value = true
+  try {
+    const res = await axios.put(`${META_API_BASE}/${boardSelectedId.value}`, {
+      thresholds: currentThresholds.value
+    })
+    ElMessage.success('高亮阈值配置已保存')
+    
+    // Update local state
+    const queryIdx = savedQueries.value.findIndex(q => q.id === boardSelectedId.value)
+    if (queryIdx !== -1) {
+      savedQueries.value[queryIdx].thresholds = res.data.thresholds
+    }
+    
+    thresholdDialogVisible.value = false
+  } catch (error) {
+    ElMessage.error('保存失败')
+  } finally {
+    savingThresholds.value = false
+  }
+}
+
+// 动态计算单元格样式
+const getBoardCellStyle = ({ row, column }) => {
+  const colName = column.property
+  if (!currentThresholds.value || currentThresholds.value.length === 0) return {}
+  
+  for (const rule of currentThresholds.value) {
+    if (rule.column === colName) {
+      const cellValue = Number(row[colName])
+      if (isNaN(cellValue)) continue
+      
+      const ruleValue = Number(rule.value)
+      let match = false
+      
+      switch (rule.operator) {
+        case '>': match = cellValue > ruleValue; break;
+        case '<': match = cellValue < ruleValue; break;
+        case '=': match = cellValue === ruleValue; break;
+        case '>=': match = cellValue >= ruleValue; break;
+        case '<=': match = cellValue <= ruleValue; break;
+      }
+      
+      if (match) {
+        // 如果文字和背景对比度差，也可以在这里扩展控制字体颜色
+        return { backgroundColor: rule.color }
+      }
+    }
+  }
+  return {}
 }
 
 // === 处理单元格点击 (下钻明细) ===
