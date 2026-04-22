@@ -72,20 +72,24 @@ class ClickHouseAdapter(DataSourcePort):
                         
             # Determine SELECT projection based on the metric clicked
             select_projection = "*"
+            limit_by_expr = None
+            
             if target_expr:
                 if isinstance(target_expr, exp.Count):
-                    # For COUNT(DISTINCT table.col), we want to project DISTINCT table.* to show all related info of that entity
+                    # For COUNT(DISTINCT table.col), we want to project table.* to show all related info of that entity
+                    # and use LIMIT 1 BY col to ensure we only get exactly as many rows as the distinct count.
                     distinct_node = target_expr.find(exp.Distinct)
                     if distinct_node and distinct_node.expressions:
                         col_expr = distinct_node.expressions[0]
+                        limit_by_expr = col_expr
+                        
                         if isinstance(col_expr, exp.Column) and col_expr.args.get("table"):
                             table_alias = col_expr.args["table"].sql(dialect="clickhouse")
-                            select_projection = f"DISTINCT {table_alias}.*"
+                            select_projection = f"{table_alias}.*"
                         else:
-                            select_projection = f"DISTINCT {col_expr.sql(dialect='clickhouse')}"
+                            select_projection = f"{col_expr.sql(dialect='clickhouse')}"
                 elif isinstance(target_expr, (exp.Sum, exp.Avg, exp.Max, exp.Min)):
                     # For sum/avg/max/min, it's often useful to just show the underlying detail records for that column and related context
-                    # Still fallback to select * for now, but in advanced BI tools we might reorder or filter columns
                     select_projection = "*"
 
             # Create a new query extracting just the FROM and WHERE from original AST
@@ -112,22 +116,32 @@ class ClickHouseAdapter(DataSourcePort):
                 elif v is not None:
                     new_ast = new_ast.where(f"{k} = {v}")
 
+            # Apply LIMIT BY if we are doing smart distinct entity projection
+            if limit_by_expr:
+                new_ast = new_ast.limit(1)
+                new_ast.args['limit'].set('expressions', [limit_by_expr])
+
             # Generate base SQL for counting before limits are applied
             base_sql = new_ast.sql(dialect="clickhouse")
             
-            # For count queries, we must count the subquery to get total rows, especially important for DISTINCT projections
+            # For count queries, we must count the subquery to get total rows
             count_sql = f"SELECT COUNT(*) AS total FROM ({base_sql})"
             print(f"[ClickHouse] Executing Drill-through Count SQL: {count_sql}")
             count_result = self.client.query(count_sql)
             total = count_result.result_rows[0][0] if count_result.result_rows else 0
 
-            # Add limits for paginated actual data query
+            # Add regular pagination limits
+            # Note: sqlglot might overwrite the limit value if we just call .limit() again, 
+            # but we actually want the global limit, which in ClickHouse is placed at the very end
+            # Using sqlglot to append regular limits on top of a query that might already have LIMIT BY
+            # can be tricky with AST modification, so we'll construct the final query string directly.
+            
+            data_sql = base_sql
             if request.limit is not None:
-                new_ast = new_ast.limit(request.limit)
+                data_sql += f" LIMIT {request.limit}"
             if request.offset is not None:
-                new_ast = new_ast.offset(request.offset)
+                data_sql += f" OFFSET {request.offset}"
                 
-            data_sql = new_ast.sql(dialect="clickhouse")
             print(f"[ClickHouse] Executing Drill-through Data SQL: {data_sql}")
             
             data_result = self.client.query(data_sql)

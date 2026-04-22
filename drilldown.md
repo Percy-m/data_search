@@ -31,7 +31,7 @@
      - `limit` & `offset`: 分页参数。
    - **执行逻辑**：
      - 后端接收到 `raw_sql` 后，通过 `sqlglot` 解析出基础的 AST（提取 FROM, JOIN 和原有的 WHERE 条件）。
-       - **智能投影 (Smart Projection)**：根据 `clicked_metric` 的表达式类型动态决定查询内容。若为 `COUNT(DISTINCT table.field)`，则明细语句的投影变为 `SELECT DISTINCT table.*`，返回该去重主体的完整上下文属性；若是普通聚合，则退化为 `SELECT *` 获取底层大宽表。
+       - **智能投影 (Smart Projection)**：根据 `clicked_metric` 的表达式类型动态决定查询内容。若为 `COUNT(DISTINCT table.field)`，则明细语句的投影变为 `SELECT table.*`，并追加 `LIMIT 1 BY table.field`，从而精准返回去重后的实体列表，并完整携带该实体的其他属性；若是普通聚合，则退化为 `SELECT *` 获取底层大宽表。
      - 将前端传来的 `filters` 安全地转化为 AST 上的过滤条件，并与原有的 WHERE 条件进行 AND 合并。
      - 剥离原 SQL 中的 `GROUP BY`, `ORDER BY`, `LIMIT`。
      - 生成总数查询和明细查询的两条新 SQL 在数据库中执行，返回给前端。
