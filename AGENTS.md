@@ -33,7 +33,9 @@ The system strictly follows a **Ports and Adapters (Hexagonal) Architecture** to
   - When clicking on metrics in ECharts or Tables to see underlying raw data, the frontend sends the SQL and clicked metric.
   - The backend safely extracts `FROM`, `JOIN`s, and `WHERE` using `sqlglot`.
   - **COUNT(DISTINCT)** handling: Instead of just blowing up into a large base table (`SELECT *`), if a `COUNT(DISTINCT table.field)` is clicked, the backend modifies the projection to `SELECT table.*` and appends `LIMIT 1 BY table.field` to precisely return the deduped underlying entity rows without metric distortion.
-- **Dynamic Table Mapping (Pending/Planned)**: Future iterations aim to intercept the AST to dynamically map table names (e.g. `orders` -> `order_3_1`) before execution to support versioned data warehouses.
+- **Dynamic Table Mapping (Macro Variables)**: 
+  - Supports passing a `macros: Dict[str, str]` object from the frontend (e.g., `{"version": "3_1"}`).
+  - Backend uses `sqlglot` to traverse the AST, finds `Table` nodes containing placeholders like `{{version}}`, and safely injects the macro values directly into the AST structure (e.g., transforming `order_{{version}}` to `order_3_1`) before executing. This avoids fragile string replacements and prevents accidental manipulation of aliases or column names.
 
 ## Testing & Tooling
 
