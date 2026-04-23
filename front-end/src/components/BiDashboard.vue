@@ -155,7 +155,7 @@
         <el-container class="editor-main-container">
           <el-aside width="250px" class="editor-aside">
             <div style="padding: 10px; border-bottom: 1px solid #eee;">
-              <h4>已保存的查询模型</h4>
+              <h4>已保存的查询</h4>
             </div>
             <el-menu class="table-tree-menu">
               <el-menu-item 
@@ -198,7 +198,7 @@
                   <el-button type="primary" size="large" @click="runEditorQuery" :loading="editorLoading">
                     执行查询
                   </el-button>
-                  <el-button @click="showSaveQueryDialog" size="large" type="success" plain>保存查询模型</el-button>
+                  <el-button @click="showSaveQueryDialog" size="large" type="success" plain>保存查询</el-button>
                   <el-button @click="editorSql = 'SELECT * FROM bi_demo.orders LIMIT 10'" size="large">重置</el-button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -271,7 +271,7 @@
     <el-dialog v-model="addWidgetDialogVisible" title="添加查询图表到看板" width="40%">
       <el-table :data="savedQueries" border stripe>
         <el-table-column prop="name" label="查询名称" />
-        <el-table-column prop="chart_type" label="类型" width="100">
+        <el-table-column prop="chart_type" label="图表类型" width="120">
           <template #default="scope"><el-tag size="small" type="info">{{ scope.row.chart_type }}</el-tag></template>
         </el-table-column>
         <el-table-column label="操作" width="100" align="center">
@@ -299,10 +299,10 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="saveQueryDialogVisible" title="保存查询模型" width="30%">
+    <el-dialog v-model="saveQueryDialogVisible" title="保存查询" width="30%">
       <el-form @submit.prevent>
         <el-form-item label="查询名称">
-          <el-input v-model="saveQueryName" placeholder="请输入模型名称" />
+          <el-input v-model="saveQueryName" placeholder="请输入查询名称" />
         </el-form-item>
       </el-form>
       <template #footer>
