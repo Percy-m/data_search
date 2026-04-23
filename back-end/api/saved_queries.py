@@ -13,17 +13,23 @@ router = APIRouter()
 class SavedQueryCreate(BaseModel):
     name: str
     raw_sql: str
+    data_source_id: Optional[int] = None
+    chart_type: str = "table"
     thresholds: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
 
 class SavedQueryUpdate(BaseModel):
     name: Optional[str] = None
     raw_sql: Optional[str] = None
+    data_source_id: Optional[int] = None
+    chart_type: Optional[str] = None
     thresholds: Optional[List[Dict[str, Any]]] = None
 
 class SavedQueryResponse(BaseModel):
     id: int
     name: str
     raw_sql: str
+    data_source_id: Optional[int]
+    chart_type: str
     thresholds: List[Dict[str, Any]]
     created_at: datetime
 
@@ -37,7 +43,13 @@ def create_saved_query(query: SavedQueryCreate, db: Session = Depends(get_db)):
     if db_query:
         raise HTTPException(status_code=400, detail="A saved query with this name already exists")
     
-    new_query = SavedQuery(name=query.name, raw_sql=query.raw_sql, thresholds=query.thresholds)
+    new_query = SavedQuery(
+        name=query.name, 
+        raw_sql=query.raw_sql, 
+        data_source_id=query.data_source_id,
+        chart_type=query.chart_type,
+        thresholds=query.thresholds
+    )
     db.add(new_query)
     db.commit()
     db.refresh(new_query)
@@ -57,6 +69,10 @@ def update_saved_query(query_id: int, query: SavedQueryUpdate, db: Session = Dep
         db_query.name = query.name
     if query.raw_sql is not None:
         db_query.raw_sql = query.raw_sql
+    if query.data_source_id is not None:
+        db_query.data_source_id = query.data_source_id
+    if query.chart_type is not None:
+        db_query.chart_type = query.chart_type
     if query.thresholds is not None:
         db_query.thresholds = query.thresholds
         

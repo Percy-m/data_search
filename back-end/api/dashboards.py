@@ -143,6 +143,7 @@ def _format_dashboard_response(dash: Dashboard) -> dict:
             "query_name": q.name if q else "Unknown",
             "query_sql": q.raw_sql if q else "",
             "query_thresholds": q.thresholds if q else [],
+            "chart_type": q.chart_type if q else "table",
             "data_source_id": q.data_source_id if q else None
         })
     return resp
