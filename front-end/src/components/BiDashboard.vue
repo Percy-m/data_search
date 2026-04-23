@@ -743,6 +743,7 @@ onMounted(() => {
 .main-header h2 { margin: 0 0 10px 0; color: #303133; }
 .subtitle { color: #606266; font-size: 14px; margin: 0; }
 .main-tabs { flex: 1; display: flex; flex-direction: row; }
+:deep(.el-tabs__item) { text-align: left !important; justify-content: flex-start !important; padding-left: 20px !important; }
 :deep(.el-tabs__content) { flex: 1; padding: 0 !important; overflow: hidden; }
 :deep(.el-tab-pane) { height: 100%; display: flex; flex-direction: column; }
 .ds-container { padding: 20px; height: 100%; overflow: auto; box-sizing: border-box; }
