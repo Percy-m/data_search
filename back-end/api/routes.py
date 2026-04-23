@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
+from sqlalchemy.orm import Session
 from core.models import QueryRequest, DrillDownRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 from core.factory import DataSourceFactory
+from core.database import get_db
+from core.meta_models import DataSource
 from services.query import QueryService
 import os
 
@@ -10,27 +13,57 @@ DataSourceFactory.register("clickhouse", ClickHouseAdapter)
 
 router = APIRouter()
 
-# 获取数据源服务的依赖注入
-def get_query_service() -> QueryService:
-    # 实际项目中，这些配置应当从环境变量或配置中心获取
-    ds_type = os.getenv("DATA_SOURCE_TYPE", "clickhouse")
-    
+# 获取数据源服务的依赖注入，现在支持通过 Header 传递 x-data-source-id
+def get_query_service(x_data_source_id: int = Header(None), db: Session = Depends(get_db)) -> QueryService:
     try:
-        if ds_type == "clickhouse":
+        # 如果前端传递了明确的数据源 ID，则从数据库拉取连接配置
+        if x_data_source_id:
+            ds_record = db.query(DataSource).filter(DataSource.id == x_data_source_id).first()
+            if not ds_record:
+                raise ValueError(f"Data source with id {x_data_source_id} not found")
+            
             adapter = DataSourceFactory.create(
-                "clickhouse",
-                host=os.getenv("CH_HOST", "localhost"),
-                port=int(os.getenv("CH_PORT", "8123")),
-                username=os.getenv("CH_USER", "default"),
-                password=os.getenv("CH_PASSWORD", ""),
-                database=os.getenv("CH_DB", "default")
+                ds_record.type,
+                host=ds_record.host,
+                port=ds_record.port,
+                username=ds_record.username,
+                password=ds_record.password,
+                database=ds_record.database
             )
         else:
-            raise ValueError(f"Unsupported data source type: {ds_type}")
-            
+            # 兼容旧逻辑/默认本地开发配置
+            ds_type = os.getenv("DATA_SOURCE_TYPE", "clickhouse")
+            if ds_type == "clickhouse":
+                adapter = DataSourceFactory.create(
+                    "clickhouse",
+                    host=os.getenv("CH_HOST", "localhost"),
+                    port=int(os.getenv("CH_PORT", "8123")),
+                    username=os.getenv("CH_USER", "default"),
+                    password=os.getenv("CH_PASSWORD", ""),
+                    database=os.getenv("CH_DB", "default")
+                )
+            else:
+                raise ValueError(f"Unsupported default data source type: {ds_type}")
+                
         return QueryService(data_source=adapter)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"数据源初始化失败: {str(e)}")
+
+@router.get("/meta/tables")
+def get_tables(service: QueryService = Depends(get_query_service)):
+    try:
+        tables = service.data_source.get_tables()
+        return {"tables": tables}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/meta/columns/{table_name}")
+def get_columns(table_name: str, service: QueryService = Depends(get_query_service)):
+    try:
+        columns = service.data_source.get_columns(table_name)
+        return {"columns": columns}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/query", response_model=QueryResult)
 def execute_query(request: QueryRequest, service: QueryService = Depends(get_query_service)):

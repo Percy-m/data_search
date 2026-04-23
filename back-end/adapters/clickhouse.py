@@ -159,3 +159,28 @@ class ClickHouseAdapter(DataSourcePort):
             return True
         except Exception:
             return False
+
+    def get_tables(self) -> list:
+        try:
+            result = self.client.query("SHOW TABLES")
+            return [row[0] for row in result.result_rows]
+        except Exception as e:
+            print(f"[ClickHouse] get_tables error: {e}")
+            return []
+
+    def get_columns(self, table_name: str) -> list:
+        try:
+            # Prevent simple injection since table_name isn't easily parameterized in all drivers
+            safe_table = table_name.replace("`", "").replace("'", "").replace("\"", "")
+            result = self.client.query(f"DESCRIBE TABLE {safe_table}")
+            # ClickHouse DESCRIBE returns: name, type, default_type, default_expression, comment, codec_expression, ttl_expression
+            columns = []
+            for row in result.result_rows:
+                columns.append({
+                    "name": row[0],
+                    "type": row[1]
+                })
+            return columns
+        except Exception as e:
+            print(f"[ClickHouse] get_columns error: {e}")
+            return []

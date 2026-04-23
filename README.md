@@ -7,12 +7,13 @@
 后端严格遵循 **端口与适配器模式（六边形架构）**，实现了核心业务逻辑与底层基础设施的彻底解耦。
 
 ### 目录结构分层
-- **`core/` (核心层)**：定义纯粹的领域模型（如 `QueryRequest`, `DrillDownRequest` 基于 Pydantic）和数据源标准接口（`DataSourcePort`）。
+- **`core/` (核心层)**：定义纯粹的领域模型（如 `QueryRequest`, `DrillDownRequest` 基于 Pydantic）和数据源标准接口（`DataSourcePort`），并引入了由 SQLAlchemy 驱动的元数据模型 (`meta_models.py`) 用以存储数据源配置及看板布局。
 - **`adapters/` (适配器层)**：针对具体数据库（如当前实现的 `ClickHouseAdapter`）进行 SQL 翻译和执行。
 - **`services/` (服务层)**：封装标准查询和通用下钻算法（`QueryService`）。
-- **`api/` (接入层)**：FastAPI 路由和依赖注入控制。
+- **`api/` (接入层)**：FastAPI 路由和依赖注入控制，支持从 HTTP 请求头中动态加载数据源环境（`x-data-source-id`）。
 
 ### 核心设计亮点
+- **动态数据源驱动**：告别硬编码的连接配置，系统支持在运行时配置并切换任意数据源（通过元数据库动态加载连接句柄），同时提供了获取表结构 (`get_tables`) 等通用抽象接口。
 - **抽象语法树 (AST) 查询**：采用 Pydantic 定义通用的查询请求体（Dimensions, Metrics, Filters），保证业务层无需关心底层数据库。
 - **安全的 SQL 解析层**：引入 `sqlglot` 提供 Raw SQL 到 AST 的双向解析能力，保证在进行明细查询（Drill-through）时不会由于前端字符串拼接导致 SQL 注入或语法崩溃。
 - **两种多维分析模式**：
@@ -24,10 +25,11 @@
 前端作为数据展示的门户，基于 **Vue 3 (Composition API) + Vite** 构建，采用 **Element Plus** 负责 UI 与表格，结合 **Apache ECharts** 提供高可交互性的可视化图表。
 
 ### 核心功能模块 (Dashboard)
-页面架构分为两大核心工作区：
-1. **数据看板 (Dashboard)**：支持从工作台将调优好的 SQL 一键保存为业务数据看板（存储在独立的元数据库 PostgreSQL 中）。只读视图纯净无干扰，并且支持为看板列**自定义配置条件高亮（染色预警）规则**。
-2. **SQL 分析工作台 (Workspace)**：供分析师使用的极客界面，支持复杂的原生 SQL 分析与执行调试。
-3. **可视化数据下钻 (Drill-through)**：两大工作区共享的核心能力，点击结果中的数值指标即可触发基于 AST 解析的智能下钻，穿透至底层明细。
+页面架构分为三大核心工作区：
+1. **配置中心 (Data Sources)**：UI 化的数据源连接池管理。用户可以输入 Host, Port 及账号密码连接 ClickHouse，在保存时系统会主动执行 Ping 测试保证连通性。
+2. **数据看板 (Dashboard)**：支持从工作台将调优好的 SQL 一键保存为业务数据看板（存储在独立的元数据库 PostgreSQL 中）。只读视图纯净无干扰，并且支持为看板列**自定义配置条件高亮（染色预警）规则**。
+3. **SQL 分析工作台 (Workspace)**：供分析师使用的极客界面。通过切换数据源，左侧会自动渲染出该库底下的**所有表结构（Table Tree）**。点击表名快速填充 SQL，在右侧执行复杂原生 SQL 调试。
+4. **可视化数据下钻 (Drill-through)**：三大工作区共享的核心能力，点击结果中的数值指标即可触发基于 AST 解析的智能下钻，穿透至底层明细。
 
 ## 3. 快速启动 (Getting Started)
 

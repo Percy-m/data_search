@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List, Dict, Any
 from .models import QueryRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 
 class DataSourcePort(ABC):
@@ -20,4 +21,14 @@ class DataSourcePort(ABC):
     
     @abstractmethod
     def test_connection(self) -> bool:
+        pass
+        
+    @abstractmethod
+    def get_tables(self) -> List[str]:
+        """获取当前数据库下所有的表名"""
+        pass
+        
+    @abstractmethod
+    def get_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        """获取指定表的所有字段信息 (名称, 类型等)"""
         pass
