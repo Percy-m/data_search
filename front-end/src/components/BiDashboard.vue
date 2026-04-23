@@ -5,7 +5,7 @@
       <p class="subtitle">支持多数据源直连、拖拽看板、可视化数据下钻。</p>
     </div>
 
-    <el-tabs v-model="activeTab" class="main-tabs" type="border-card">
+    <el-tabs v-model="activeTab" class="main-tabs" type="border-card" tab-position="left">
       <!-- Tab 1: 数据源管理 -->
       <el-tab-pane label="配置中心 (Data Sources)" name="datasource">
         <!-- ... 省略之前的数据源管理面板代码，保持不变 ... -->
@@ -738,32 +738,41 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.app-container { padding: 20px; }
-.main-header { margin-bottom: 20px; padding-left: 10px; }
+.app-container { padding: 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+.main-header { margin-bottom: 20px; padding-left: 10px; flex-shrink: 0; }
 .main-header h2 { margin: 0 0 10px 0; color: #303133; }
 .subtitle { color: #606266; font-size: 14px; margin: 0; }
-.main-tabs { min-height: 85vh; }
-.dashboard-container, .editor-main-container { min-height: 75vh; }
-.saved-queries-aside, .editor-aside { border-right: 1px solid #dcdfe6; background: #fff; }
+.main-tabs { flex: 1; display: flex; flex-direction: row; }
+:deep(.el-tabs__content) { flex: 1; padding: 0 !important; overflow: hidden; }
+:deep(.el-tab-pane) { height: 100%; display: flex; flex-direction: column; }
+.ds-container { padding: 20px; height: 100%; overflow: auto; box-sizing: border-box; }
+.dashboard-container, .editor-main-container { flex: 1; height: 100%; }
+.saved-queries-aside, .editor-aside { border-right: 1px solid #dcdfe6; background: #fff; display: flex; flex-direction: column; }
 .aside-header { padding: 15px 20px; border-bottom: 1px solid #ebeef5; background-color: #f8f9fa; display: flex; justify-content: space-between; align-items: center;}
 .aside-header h3 { margin: 0; color: #303133; font-size: 16px; }
-.saved-queries-menu { border-right: none; }
+.saved-queries-menu { border-right: none; flex: 1; overflow-y: auto; }
+.table-tree-menu { border-right: none; flex: 1; overflow-y: auto; }
 .menu-item-content { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .query-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
 .empty-text { text-align: center; color: #909399; padding: 30px 0; font-size: 14px; }
-.dashboard-main { padding: 0; position: relative; }
-.board-view { padding: 20px; height: 100%; }
+.dashboard-main { padding: 0; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+.board-view { padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; }
+.board-title-section { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ebeef5; padding-bottom: 10px; flex-shrink: 0; }
+.board-title-section h2 { margin: 0; color: #303133; }
 .widget-card { background: #fff; border-radius: 4px; box-shadow: 0 2px 12px 0 rgba(0,0,0,.1); }
 .widget-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
 .widget-title { font-weight: bold; color: #333; font-size: 14px; }
-.query-box { background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #ebeef5; }
+.empty-board { margin-top: 100px; }
+.editor-container { padding: 10px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; overflow: hidden; }
+.query-box { background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ebeef5; flex-shrink: 0; }
 .sql-input { font-family: 'Courier New', Courier, monospace; }
 .action-bar { margin-top: 15px; display: flex; gap: 10px; }
-.result-box { margin-top: 20px; }
+.result-box { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 .clickable-metric { color: #409EFF; font-weight: bold; cursor: pointer; text-decoration: underline; transition: all 0.2s; }
 .clickable-metric:hover { color: #66b1ff; }
 .detail-context { margin-bottom: 15px; background-color: #f4f4f5; padding: 10px; border-radius: 4px; }
 .pagination-box { margin-top: 20px; display: flex; justify-content: flex-end; }
-/* vue-grid-layout styles */
+/* vue-grid-layout styles are handled by the component */
 .vue-grid-item:not(.vue-grid-placeholder) { background: transparent; border: 1px solid #eee; }
+.vue-grid-layout { flex: 1; overflow-y: auto; overflow-x: hidden; }
 </style>
