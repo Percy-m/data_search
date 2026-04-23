@@ -1,39 +1,12 @@
 <template>
   <div class="app-container">
     <div class="main-header">
-      <h2>统一数据分析控制台</h2>
-      <p class="subtitle">支持多数据源直连、拖拽看板、可视化数据下钻。</p>
+      <h2 class="title">统一数据分析控制台</h2>
+      <span class="subtitle">支持多数据源直连、拖拽看板、可视化智能下钻</span>
     </div>
 
     <el-tabs v-model="activeTab" class="main-tabs" type="border-card" tab-position="left">
-      <!-- Tab 1: 数据源管理 -->
-      <el-tab-pane label="配置中心 (Data Sources)" name="datasource">
-        <!-- ... 省略之前的数据源管理面板代码，保持不变 ... -->
-        <div class="ds-container">
-          <div style="margin-bottom: 15px; display: flex; justify-content: space-between;">
-            <h3>已接入的数据源</h3>
-            <el-button type="primary" icon="Plus" @click="showDsDialog">新增数据源</el-button>
-          </div>
-          <el-table :data="dataSources" border stripe>
-            <el-table-column prop="id" label="ID" width="80" />
-            <el-table-column prop="name" label="连接名称" />
-            <el-table-column prop="type" label="类型" width="120">
-              <template #default="scope">
-                <el-tag size="small">{{ scope.row.type }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="host" label="主机地址" />
-            <el-table-column prop="database" label="数据库" />
-            <el-table-column label="操作" width="100" align="center">
-              <template #default="scope">
-                <el-button type="danger" link icon="Delete" @click="deleteDataSource(scope.row.id)"></el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </el-tab-pane>
-
-      <!-- Tab 2: 组合看板 (Dashboards) -->
+      <!-- Tab 1: 组合看板 (Dashboards) -->
       <el-tab-pane label="数据看板 (Dashboards)" name="dashboard">
         <el-container class="dashboard-container">
           <!-- 左侧：看板列表 -->
@@ -51,7 +24,11 @@
               >
                 <div class="menu-item-content">
                   <span class="query-name" :title="db.name">{{ db.name }}</span>
-                  <el-button type="danger" link icon="Delete" @click.stop="deleteDashboard(db.id)" title="删除看板"></el-button>
+                  <el-popconfirm title="确定要删除这个看板吗？" @confirm="deleteDashboard(db.id)" width="200" confirm-button-text="删除" confirm-button-type="danger" cancel-button-text="取消">
+                    <template #reference>
+                      <el-button type="danger" link icon="Delete" @click.stop title="删除看板"></el-button>
+                    </template>
+                  </el-popconfirm>
                 </div>
               </el-menu-item>
               <div v-if="dashboards.length === 0" class="empty-text">暂无看板，请先创建</div>
@@ -179,8 +156,12 @@
                 @click="loadQueryToEditor(q)"
               >
                 <el-icon><DataLine /></el-icon>
-                <span :title="q.name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ q.name }}</span>
-                <el-button type="danger" link icon="Delete" style="margin-left: auto;" @click.stop="deleteSavedQuery(q.id)"></el-button>
+                <span :title="q.name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{{ q.name }}</span>
+                <el-popconfirm title="确定要删除这个查询吗？" @confirm="deleteSavedQuery(q.id)" width="200" confirm-button-text="删除" confirm-button-type="danger" cancel-button-text="取消">
+                  <template #reference>
+                    <el-button type="danger" link icon="Delete" style="margin-left: 5px;" @click.stop></el-button>
+                  </template>
+                </el-popconfirm>
               </el-menu-item>
             </el-menu>
             
@@ -265,6 +246,35 @@
             </div>
           </el-main>
         </el-container>
+      </el-tab-pane>
+      <!-- Tab 3: 配置中心 (Data Sources) - Moved to bottom -->
+      <el-tab-pane label="配置中心 (Data Sources)" name="datasource">
+        <div class="ds-container">
+          <div style="margin-bottom: 15px; display: flex; justify-content: space-between;">
+            <h3>已接入的数据源</h3>
+            <el-button type="primary" icon="Plus" @click="showDsDialog">新增数据源</el-button>
+          </div>
+          <el-table :data="dataSources" border stripe>
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="name" label="连接名称" />
+            <el-table-column prop="type" label="类型" width="120">
+              <template #default="scope">
+                <el-tag size="small">{{ scope.row.type }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="host" label="主机地址" />
+            <el-table-column prop="database" label="数据库" />
+            <el-table-column label="操作" width="100" align="center">
+              <template #default="scope">
+                <el-popconfirm title="确定要删除该数据源吗？" @confirm="deleteDataSource(scope.row.id)" confirm-button-text="删除" confirm-button-type="danger" cancel-button-text="取消">
+                  <template #reference>
+                    <el-button type="danger" link icon="Delete"></el-button>
+                  </template>
+                </el-popconfirm>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-tab-pane>
     </el-tabs>
 
@@ -637,7 +647,13 @@ const saveCurrentQuery = async () => {
   }
 }
 const deleteSavedQuery = async (id) => {
-  await axios.delete(`${META_API_BASE}/${id}`); fetchSavedQueries()
+  try {
+    await axios.delete(`${META_API_BASE}/${id}`)
+    ElMessage.success('删除成功')
+    fetchSavedQueries()
+  } catch (e) {
+    ElMessage.error('删除失败')
+  }
 }
 const loadQueryToEditor = (q) => {
   editorSql.value = q.raw_sql; currentDataSourceId.value = q.data_source_id; editorChartType.value = q.chart_type || 'table'
@@ -660,9 +676,14 @@ const createDashboard = async () => {
   } catch (e) {}
 }
 const deleteDashboard = async (id) => {
-  ElMessageBox.confirm('删除?', '警告', {type:'warning'}).then(async () => {
-    await axios.delete(`${DASH_API_BASE}/${id}`); if(activeDashboardId.value===id) activeDashboard.value=null; fetchDashboards()
-  }).catch(()=>{})
+  try {
+    await axios.delete(`${DASH_API_BASE}/${id}`)
+    ElMessage.success('删除成功')
+    if (activeDashboardId.value === id) activeDashboard.value = null
+    fetchDashboards()
+  } catch (e) {
+    ElMessage.error('删除失败')
+  }
 }
 
 const loadDashboard = async (db) => {
