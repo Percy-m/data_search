@@ -37,6 +37,18 @@
 
           <!-- 右侧：看板画布 -->
           <el-main class="dashboard-main" style="background-color: #f0f2f5;">
+            
+            <div class="global-macros-bar" v-if="activeDashboard">
+              <span style="font-weight: bold; margin-right: 15px; font-size: 14px; color: #606266;">全局参数 (Macros)</span>
+              <div v-for="(macro, idx) in globalMacros" :key="idx" class="macro-item">
+                <el-input v-model="macro.key" placeholder="Key (如 version)" size="small" style="width: 120px;" />
+                <span style="margin: 0 5px;">=</span>
+                <el-input v-model="macro.value" placeholder="Value (如 3_1)" size="small" style="width: 150px;" @change="refreshActiveDashboard" />
+                <el-button type="danger" link icon="Close" @click="removeMacro(idx)"></el-button>
+              </div>
+              <el-button type="primary" link icon="Plus" size="small" @click="addMacro" style="margin-left: 10px;">添加参数</el-button>
+            </div>
+            
             <div v-if="activeDashboard" class="board-view">
               <div class="board-title-section" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -184,6 +196,17 @@
           </el-aside>
 
           <el-main class="editor-container">
+            <div class="global-macros-bar" style="border-bottom: 1px solid #ebeef5; border-radius: 0;">
+              <span style="font-weight: bold; margin-right: 15px; font-size: 14px; color: #606266;">测试宏参数 (Macros)</span>
+              <div v-for="(macro, idx) in globalMacros" :key="idx" class="macro-item">
+                <el-input v-model="macro.key" placeholder="Key (如 version)" size="small" style="width: 120px;" />
+                <span style="margin: 0 5px;">=</span>
+                <el-input v-model="macro.value" placeholder="Value (如 3_1)" size="small" style="width: 150px;" />
+                <el-button type="danger" link icon="Close" @click="removeMacro(idx)"></el-button>
+              </div>
+              <el-button type="primary" link icon="Plus" size="small" @click="addMacro" style="margin-left: 10px;">添加参数</el-button>
+            </div>
+            
             <div class="query-box">
               <el-input
                 v-model="editorSql"
@@ -433,6 +456,7 @@ const dsForm = ref({ name: '', type: 'clickhouse', host: 'localhost', port: 8123
 
 const activeTab = ref('dashboard')
 const savedQueries = ref([])
+const globalMacros = ref([{ key: 'version', value: 's' }]) // 全局宏变量配置
 
 const dashboards = ref([])
 const activeDashboardId = ref(null)
@@ -582,6 +606,17 @@ const handleChartClick = (params, widget) => {
   handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id)
 }
 
+// === Macros Logic ===
+const addMacro = () => { globalMacros.value.push({ key: '', value: '' }) }
+const removeMacro = (idx) => { globalMacros.value.splice(idx, 1) }
+const getMacrosDict = () => {
+  const dict = {}
+  globalMacros.value.forEach(m => {
+    if (m.key.trim()) dict[m.key.trim()] = m.value.trim()
+  })
+  return dict
+}
+
 // --- Data Sources ---
 const fetchDataSources = async () => {
   try {
@@ -627,11 +662,14 @@ const runEditorQuery = async () => {
   editorLoading.value = true
   try {
     const headers = currentDataSourceId.value ? { 'x-data-source-id': currentDataSourceId.value } : {}
-    const res = await axios.post(`${API_BASE}/query/raw`, { sql: editorSql.value }, { headers })
+    const res = await axios.post(`${API_BASE}/query/raw`, { 
+      sql: editorSql.value,
+      macros: getMacrosDict()
+    }, { headers })
     editorColumns.value = res.data.columns
     editorTableData.value = res.data.data
     editorMetricColumns.value = parseMetrics(editorSql.value, res.data.columns)
-  } catch (e) { ElMessage.error('查询失败') } finally { editorLoading.value = false }
+  } catch (e) { ElMessage.error('查询失败: ' + e.message) } finally { editorLoading.value = false }
 }
 
 const showSaveQueryDialog = () => { saveQueryName.value = ''; saveQueryDialogVisible.value = true }
@@ -712,7 +750,10 @@ const fetchWidgetData = async (widget) => {
   widgetLoading.value[widget.i] = true
   try {
     const headers = widget.data_source_id ? { 'x-data-source-id': widget.data_source_id } : {}
-    const res = await axios.post(`${API_BASE}/query/raw`, { sql: widget.query_sql }, { headers })
+    const res = await axios.post(`${API_BASE}/query/raw`, { 
+      sql: widget.query_sql,
+      macros: getMacrosDict()
+    }, { headers })
     widgetData.value[widget.i] = {
       columns: res.data.columns,
       data: res.data.data,
@@ -722,6 +763,12 @@ const fetchWidgetData = async (widget) => {
     widgetData.value[widget.i] = { error: '加载失败' }
   } finally {
     widgetLoading.value[widget.i] = false
+  }
+}
+
+const refreshActiveDashboard = () => {
+  if (activeDashboardLayout.value) {
+    activeDashboardLayout.value.forEach(w => { fetchWidgetData(w) })
   }
 }
 
@@ -935,7 +982,8 @@ const exportDetailToExcel = async () => {
       filters: currentContext.value.filters,
       clicked_metric: currentContext.value.metric,
       limit: 100000, 
-      offset: 0
+      offset: 0,
+      macros: getMacrosDict()
     }, { headers })
     
     generateExcelWithStyle(exportRes.data.columns, exportRes.data.data, [], 'Drill_Through_Detail')
@@ -965,7 +1013,8 @@ const loadDetailData = async (colOrPage = 1) => {
     const headers = currentContext.value.dataSourceId ? { 'x-data-source-id': currentContext.value.dataSourceId } : {}
     const res = await axios.post(`${API_BASE}/drill-through`, {
       raw_sql: currentContext.value.sourceSql, filters: currentContext.value.filters,
-      clicked_metric: currentContext.value.metric, limit: detailPageSize.value, offset: (detailPage.value - 1) * detailPageSize.value
+      clicked_metric: currentContext.value.metric, limit: detailPageSize.value, offset: (detailPage.value - 1) * detailPageSize.value,
+      macros: getMacrosDict()
     }, { headers })
     detailTotal.value = res.data.total; detailColumns.value = res.data.columns; detailData.value = res.data.data
   } catch (e) { ElMessage.error('明细加载失败') } finally { detailLoading.value = false }
