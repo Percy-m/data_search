@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as query_router
 from api.saved_queries import router as saved_queries_router
 from api.data_sources import router as data_sources_router
+from api.dashboards import router as dashboards_router
 from core.database import engine, Base
 
 # Create the database tables automatically on startup
@@ -26,6 +27,7 @@ app.add_middleware(
 app.include_router(query_router, prefix="/api/v1/data", tags=["Data Analysis"])
 app.include_router(saved_queries_router, prefix="/api/v1/saved-queries", tags=["Saved Queries"])
 app.include_router(data_sources_router, prefix="/api/v1/data-sources", tags=["Data Sources"])
+app.include_router(dashboards_router, prefix="/api/v1/dashboards", tags=["Dashboards"])
 
 if __name__ == "__main__":
     import uvicorn
