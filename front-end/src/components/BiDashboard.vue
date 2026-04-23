@@ -84,9 +84,13 @@
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
                     <div class="widget-header">
                       <span class="widget-title">{{ item.query_name }}</span>
-                      <div v-show="isDashboardEditMode">
-                        <el-button type="warning" link icon="Filter" @click="openWidgetThresholds(item)" title="独立配置预警"></el-button>
-                        <el-button type="danger" link icon="Close" @click="removeWidget(item.i)" title="移除"></el-button>
+                      <div>
+                        <!-- Always show download button -->
+                        <el-button type="success" link icon="Download" @click="exportWidgetToExcel(item)" title="导出 Excel (保留样式)"></el-button>
+                        <span v-show="isDashboardEditMode">
+                          <el-button type="warning" link icon="Filter" @click="openWidgetThresholds(item)" title="独立配置预警"></el-button>
+                          <el-button type="danger" link icon="Close" @click="removeWidget(item.i)" title="移除"></el-button>
+                        </span>
                       </div>
                     </div>
                     
@@ -197,6 +201,7 @@
                   <el-button @click="editorSql = 'SELECT * FROM bi_demo.orders LIMIT 10'" size="large">重置</el-button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
+                  <el-button type="success" plain icon="Download" size="small" @click="exportEditorToExcel" title="导出查询结果">导出 Excel</el-button>
                   <el-button type="warning" plain icon="Filter" size="small" @click="openEditorThresholds" title="配置默认预警染色">预警配置</el-button>
                   <span>图表类型预览：</span>
                   <el-select v-model="editorChartType" style="width: 120px">
@@ -341,11 +346,15 @@
 
     <!-- Drill-through Detail Dialog -->
     <el-dialog v-model="detailVisible" title="指标底层明细穿透数据" width="85%" destroy-on-close>
-      <div class="detail-context">
-        <el-tag v-for="(val, key) in currentContext.filters" :key="key" style="margin-right: 10px; margin-bottom: 10px;" type="success">
-          {{ key }}: {{ val }}
-        </el-tag>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+        <div class="detail-context" style="margin-bottom: 0;">
+          <el-tag v-for="(val, key) in currentContext.filters" :key="key" style="margin-right: 10px;" type="success">
+            {{ key }}: {{ val }}
+          </el-tag>
+        </div>
+        <el-button type="success" icon="Download" @click="exportDetailToExcel" :loading="exportingDetail">导出全部明细</el-button>
       </div>
+      
       <el-table :data="detailData" border stripe height="400" v-loading="detailLoading">
         <el-table-column v-for="col in detailColumns" :key="col" :prop="col" :label="col" show-overflow-tooltip />
       </el-table>
@@ -407,8 +416,10 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Menu, Check, Close, Filter, DataLine } from '@element-plus/icons-vue'
+import { Delete, Edit, Plus, Menu, Check, Close, Filter, DataLine, Download } from '@element-plus/icons-vue'
 import { GridLayout, GridItem } from 'vue3-grid-layout'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1/data'
 const META_API_BASE = 'http://127.0.0.1:8000/api/v1/saved-queries'
@@ -456,6 +467,7 @@ const savingQuery = ref(false)
 
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+const exportingDetail = ref(false)
 const detailData = ref([])
 const detailColumns = ref([])
 const detailTotal = ref(0)
@@ -848,6 +860,90 @@ const getWidgetCellStyle = ({ row, column }, thresholds) => {
     }
   }
   return {}
+}
+
+// --- Export Excel ---
+const generateExcelWithStyle = async (columns, data, thresholds, filename) => {
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Data')
+  
+  worksheet.columns = columns.map(col => ({ header: col, key: col, width: 20 }))
+  const headerRow = worksheet.getRow(1)
+  headerRow.font = { bold: true }
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } }
+  
+  data.forEach((row, index) => {
+    const excelRow = worksheet.addRow(row)
+    if (!thresholds || thresholds.length === 0) return
+    
+    columns.forEach((colName, colIdx) => {
+      const cell = excelRow.getCell(colIdx + 1)
+      const mockCtx = { row, column: { property: colName } }
+      const style = getWidgetCellStyle(mockCtx, thresholds)
+      
+      if (style.backgroundColor) {
+        let argb = 'FFFFFFFF'
+        if (style.backgroundColor.startsWith('rgba')) {
+           const parts = style.backgroundColor.match(/[\d.]+/g)
+           if (parts && parts.length >= 3) {
+             const r = parseInt(parts[0]).toString(16).padStart(2, '0')
+             const g = parseInt(parts[1]).toString(16).padStart(2, '0')
+             const b = parseInt(parts[2]).toString(16).padStart(2, '0')
+             argb = `FF${r}${g}${b}`.toUpperCase()
+           }
+        } else if (style.backgroundColor.startsWith('#')) {
+           argb = 'FF' + style.backgroundColor.substring(1).toUpperCase()
+        }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } }
+      }
+      
+      if (style.color) {
+         let fontArgb = 'FF000000'
+         if (style.color === '#ffffff' || style.color === '#FFFFFF') fontArgb = 'FFFFFFFF'
+         cell.font = { color: { argb: fontArgb } }
+      }
+    })
+  })
+  
+  const buffer = await workbook.xlsx.writeBuffer()
+  saveAs(new Blob([buffer]), `${filename}.xlsx`)
+}
+
+const exportWidgetToExcel = (widget) => {
+  const wd = widgetData.value[widget.i]
+  if (!wd || !wd.columns || !wd.data) {
+    ElMessage.warning('暂无数据')
+    return
+  }
+  generateExcelWithStyle(wd.columns, wd.data, widget.query_thresholds, widget.query_name || 'Widget_Data')
+}
+
+const exportEditorToExcel = () => {
+  if (editorColumns.value.length === 0) {
+    ElMessage.warning('请先查询')
+    return
+  }
+  generateExcelWithStyle(editorColumns.value, editorTableData.value, editorThresholds.value, saveQueryName.value || 'Query_Data')
+}
+
+const exportDetailToExcel = async () => {
+  exportingDetail.value = true
+  try {
+    const headers = currentContext.value.dataSourceId ? { 'x-data-source-id': currentContext.value.dataSourceId } : {}
+    const exportRes = await axios.post(`${API_BASE}/drill-through`, {
+      raw_sql: currentContext.value.sourceSql.trim(),
+      filters: currentContext.value.filters,
+      clicked_metric: currentContext.value.metric,
+      limit: 100000, 
+      offset: 0
+    }, { headers })
+    
+    generateExcelWithStyle(exportRes.data.columns, exportRes.data.data, [], 'Drill_Through_Detail')
+  } catch (e) {
+    ElMessage.error('导出失败')
+  } finally {
+    exportingDetail.value = false
+  }
 }
 
 // --- Drill Through ---
