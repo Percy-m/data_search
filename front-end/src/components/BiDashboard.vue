@@ -62,10 +62,22 @@
           <el-main class="dashboard-main" style="background-color: #f0f2f5;">
             <div v-if="activeDashboard" class="board-view">
               <div class="board-title-section" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                <h2>{{ activeDashboard.name }}</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h2 v-if="!isDashboardEditMode || !editingBoardName" style="margin:0;">{{ activeDashboard.name }}</h2>
+                  <el-input v-else v-model="tempBoardName" size="small" @blur="saveBoardName" @keyup.enter="saveBoardName" style="width: 200px" />
+                  
+                  <el-button v-if="isDashboardEditMode && !editingBoardName" link icon="Edit" @click="startEditBoardName"></el-button>
+                </div>
+                
                 <div>
-                  <el-button type="primary" plain icon="Plus" @click="showAddWidgetDialog">添加查询图表</el-button>
-                  <el-button type="success" icon="Check" @click="saveDashboardLayout" :loading="savingLayout">保存布局</el-button>
+                  <template v-if="!isDashboardEditMode">
+                    <el-button type="primary" plain icon="Edit" @click="isDashboardEditMode = true">编辑看板</el-button>
+                  </template>
+                  <template v-else>
+                    <el-button type="primary" plain icon="Plus" @click="showAddWidgetDialog">添加图表</el-button>
+                    <el-button type="success" icon="Check" @click="saveDashboardLayout" :loading="savingLayout">保存并退出</el-button>
+                    <el-button type="info" plain @click="cancelDashboardEdit">取消编辑</el-button>
+                  </template>
                 </div>
               </div>
               
@@ -74,11 +86,12 @@
                 v-model:layout="activeDashboardLayout"
                 :col-num="12"
                 :row-height="30"
-                :is-draggable="true"
-                :is-resizable="true"
+                :is-draggable="isDashboardEditMode"
+                :is-resizable="isDashboardEditMode"
                 :vertical-compact="true"
                 :margin="[10, 10]"
                 :use-css-transforms="true"
+                :class="{'grid-edit-mode': isDashboardEditMode}"
               >
                 <grid-item
                   v-for="item in activeDashboardLayout"
@@ -89,11 +102,12 @@
                   :h="item.h"
                   :i="item.i"
                   class="widget-card"
+                  :class="{'widget-edit-mode': isDashboardEditMode}"
                 >
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
                     <div class="widget-header">
                       <span class="widget-title">{{ item.query_name }}</span>
-                      <div>
+                      <div v-show="isDashboardEditMode">
                         <el-button type="warning" link icon="Filter" @click="openWidgetThresholds(item)" title="独立配置预警"></el-button>
                         <el-button type="danger" link icon="Close" @click="removeWidget(item.i)" title="移除"></el-button>
                       </div>
@@ -392,6 +406,10 @@ const newDashboardDialogVisible = ref(false)
 const newDashboardName = ref('')
 const newDashboardDesc = ref('')
 const savingLayout = ref(false)
+const isDashboardEditMode = ref(false) // 看板编辑模式状态
+const editingBoardName = ref(false)
+const tempBoardName = ref('')
+const originalLayoutStr = ref('') // 保存编辑前的快照
 
 const addWidgetDialogVisible = ref(false)
 const widgetData = ref({}) 
@@ -631,6 +649,9 @@ const loadDashboard = async (db) => {
   activeDashboardId.value = db.id
   activeDashboard.value = db
   activeDashboardLayout.value = db.widgets || []
+  isDashboardEditMode.value = false // 加载看板时默认阅读模式
+  editingBoardName.value = false
+  
   activeDashboardLayout.value.forEach(w => { fetchWidgetData(w) })
 }
 
@@ -673,7 +694,42 @@ const saveDashboardLayout = async () => {
       widgets: activeDashboardLayout.value.map(w => ({ query_id: w.query_id, x: w.x, y: w.y, w: w.w, h: w.h, i: w.i }))
     })
     ElMessage.success('布局已保存')
+    isDashboardEditMode.value = false // 保存后退出编辑模式
   } catch (e) { ElMessage.error('保存失败') } finally { savingLayout.value = false }
+}
+
+const cancelDashboardEdit = () => {
+  isDashboardEditMode.value = false
+  // 这里可以考虑恢复 originalLayoutStr, 暂略复杂回滚，直接重新加载
+  fetchDashboards()
+  const db = dashboards.value.find(d => d.id === activeDashboardId.value)
+  if (db) {
+    activeDashboardLayout.value = db.widgets || []
+  }
+}
+
+const startEditBoardName = () => {
+  tempBoardName.value = activeDashboard.value.name
+  editingBoardName.value = true
+}
+
+const saveBoardName = async () => {
+  if (!tempBoardName.value.trim() || tempBoardName.value === activeDashboard.value.name) {
+    editingBoardName.value = false
+    return
+  }
+  try {
+    await axios.put(`${DASH_API_BASE}/${activeDashboardId.value}`, {
+      name: tempBoardName.value.trim()
+    })
+    activeDashboard.value.name = tempBoardName.value.trim()
+    ElMessage.success('看板重命名成功')
+    fetchDashboards()
+  } catch (e) {
+    ElMessage.error('重命名失败')
+  } finally {
+    editingBoardName.value = false
+  }
 }
 
 // --- Thresholds ---
@@ -786,6 +842,15 @@ onMounted(() => {
 .detail-context { margin-bottom: 15px; background-color: #f4f4f5; padding: 10px; border-radius: 4px; }
 .pagination-box { margin-top: 20px; display: flex; justify-content: flex-end; }
 /* vue-grid-layout styles are handled by the component */
-.vue-grid-item:not(.vue-grid-placeholder) { background: transparent; border: 1px solid #eee; }
+.vue-grid-item:not(.vue-grid-placeholder) { background: transparent; }
 .vue-grid-layout { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+/* Edit mode specific styles */
+.grid-edit-mode {
+  background-image: linear-gradient(#e5e5e5 1px, transparent 1px), linear-gradient(90deg, #e5e5e5 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.widget-edit-mode {
+  border: 1px dashed #409EFF;
+}
 </style>
