@@ -1,85 +1,67 @@
 # 数据分析控制台架构文档 (Architecture)
 
-## 1. 演进路线回顾 (Evolution Roadmap)
+## 1. 架构概述 (Overview)
 
-本项目最初被设计为一个单一页面的 SQL 演示工具，通过以下三个阶段的密集迭代，现已成功演进为一个初具规模的商业级企业 BI 报表引擎。
+本项目旨在构建一个高扩展性、高抽象度的数据查询与可视化报表后端平台。系统采用**端口与适配器模式（六边形架构）**，实现了核心业务逻辑与底层基础设施（如数据源、Web 框架）的彻底解耦。
 
-### Phase 1: 动态数据源驱动与表结构导航
-*   **痛点**：原生架构中，数据库连接配置写死在后端代码与环境变量中，且前端 SQL 编写区完全盲写。
-*   **演进**：
-    *   引入了独立于业务分析库 (ClickHouse) 的元数据配置库 (PostgreSQL)。
-    *   抽象了连接池工厂，实现了在前端录入账号密码、测试连接并在运行时动态按需加载不同数据源的能力。
-    *   在工作台加入了 Table Tree，自动拉取数据库表结构，提升分析师编写 SQL 的效率。
-
-### Phase 2: 概念解耦与无限画布组件化
-*   **痛点**：以前所有的看板都只是一条条粗糙的保存下来的大段 SQL 代码框。
-*   **演进**：
-    *   将概念严格拆分为 **分析工作台 (Queries / Widgets)** 与 **数据看板 (Dashboards)**。
-    *   前端引入 `vue3-grid-layout`，支持新建无限画布并将任意数量的已存 Query 拖入排版。
-    *   实现了各 Widget 在统一画板上的高度自由拖拽、缩放及持久化 Layout 坐标保存，并支持单个卡片的独立“预警高亮规则 (Thresholds)”配置。
-
-### Phase 3: 多元图表化与极简智能穿透
-*   **痛点**：大屏只能展现表格（Table），且以前为了支持查询底层明细，前端被动使用极其脆弱的正则拼 SQL，常常引起语法崩溃。
-*   **演进**：
-    *   深度整合 `Apache ECharts`，工作台支持对 SQL 结果进行柱状图 (Bar)、折线图 (Line)、饼图 (Pie) 的无缝切换与一键存储。
-    *   全面接入基于 `sqlglot` 的 AST（抽象语法树）解析中间件。将钻取逻辑沉淀到后端并实现 **Smart Projection (智能投影)**。无论是点击多表复杂的 JOIN 查询、还是针对 `COUNT(DISTINCT)` 触发，都能精准地剥离、合并原查询条件的 `WHERE` 和 `JOIN`，并退化为最小必需集的下钻明细展示，在图表上点击依然纵滑流畅。
-
----
+在经过了多个阶段的演进后，本项目从最初的单一页面 SQL 工具，升级为一个包含动态数据源连接、组件化拖拽工作台、智能 AST 明细穿透的现代商业级企业 BI 报表引擎。
 
 ## 2. 后端架构 (Backend)
 
-后端服务基于 **Python 3.9 + FastAPI** 开发，遵循**端口与适配器（六边形）架构**。
+后端服务基于 **Python 3.9 + FastAPI** 开发，遵循六边形架构，确保了业务逻辑纯粹且独立。
 
-### 2.1 目录职责说明
+### 2.1 目录结构与分层
 
-*   **`main.py`**：应用入口、中间件装配、跨域配置、数据库引擎拉起。
-*   **`api/`**：HTTP 层 (Controllers)。
-    *   `dashboards.py`：大屏/画板的增删改查。
-    *   `data_sources.py`：数据源的连接测试与注册。
-    *   `saved_queries.py`：查询组件（Widget）的设计器后台。
-    *   `routes.py`：核心业务——代理执行原始 SQL，并负责 AST Drill-through 明细穿透下发。
-*   **`core/`**：领域模型与核心基建。
-    *   `meta_models.py`：SQLAlchemy ORM 模型，负责对接 PostgreSQL 存储引擎系统的全部元数据配置。
-    *   `models.py`：基于 Pydantic 的纯业务对象验证定义。
-    *   `ports.py` & `factory.py`：数据库驱动策略层，提供统一规范以随时切入不同 DB。
-    *   `database.py`：PostgreSQL Session 工厂连接池。
-*   **`adapters/`**：数据操作层实现。
-    *   `clickhouse.py`：核心类。通过官方驱动与原生 `clickhouse-client` 通信；且内部深度集成了 `sqlglot` 逻辑用于实现智能下钻时的 SQL AST 解构、组装、`LIMIT 1 BY` 等降级计算规则。
+*   **`core/` (核心层)**：系统的核心领域模型和接口定义。不依赖任何外部框架或具体的数据源实现。
+    *   `meta_models.py`: SQLAlchemy ORM 模型，负责对接 PostgreSQL 存储引擎系统的全部元数据配置（如数据源连接池、看板画布、图表组件）。
+    *   `models.py`: 定义基于 Pydantic 的抽象查询验证模型（`QueryRequest`, `DrillDownRequest`, `DrillThroughRequest` 等）。
+    *   `ports.py` & `factory.py`: 数据源抽象标准接口（提供获取表结构、执行查询的规范），以及管理动态实例化的 `DataSourceFactory`。
+    *   `database.py`: PostgreSQL Session 连接池配置。
+*   **`adapters/` (适配器层)**：具体基础设施的操作层实现。
+    *   `clickhouse.py`: ClickHouse 数据源适配器，实现了 `DataSourcePort` 接口，负责将抽象模型翻译为 SQL，直接与原生引擎通信。内部深度集成了 `sqlglot` 用于 AST 语法树智能解析和安全投影改写。
+*   **`services/` (服务层)**：业务逻辑层。
+    *   `query.py`: `QueryService` 封装了标准的多维查询和通用下钻的算法实现。
+*   **`api/` (接入层)**：HTTP 层 (Controllers)。
+    *   `dashboards.py`: 大屏/画板的增删改查。
+    *   `data_sources.py`: 数据源的动态连接注册与测试。
+    *   `saved_queries.py`: 查询图表组件（Widget）的增删改查。
+    *   `routes.py`: 核心代理端点，负责根据请求头的环境变量 (`x-data-source-id`) 调用工厂，并将请求分发至相应的 Adapter 服务执行引擎查询或智能下钻。
+*   **`main.py`**: 系统入口、中间件装配、元数据库引擎拉起。
 
-### 2.2 数据流向图 (Data Flow)
+### 2.2 核心设计解析
 
-当用户在前端画板点击某个 ECharts 饼图请求查看下钻明细时：
-1. Request -> `api/routes.py` (携带 ECharts Node 上下文与 Header `x-data-source-id`)。
-2. Factory 根据 Header 动态装配生成 `ClickHouseAdapter` 实例对象。
-3. `QueryService` 接收到调用，传递给 Adapter 的 `execute_drill_through` 方法。
-4. Adapter 使用 `sqlglot` 将该 Widget 保存的原生复杂 SQL 解析为一棵 AST。
-5. Adapter 从 AST 中提取底层的 `FROM` 与所有的 `JOIN`。
-6. Adapter 动态合并前端传来的点击节点过滤器（如 `country = 'China'`）。
-7. Adapter 根据该图表的聚合类型（是普通聚合还是 `COUNT(DISTINCT)`），决定投影模式。
-8. 重新编译 AST 树为原生 SQL 字符串交由 ClickHouse 执行，安全返还明细给前台。
+#### 多数据源扩展设计（松耦合）
+为了避免数据库绑定困境（如未来需要接入 MySQL、Elasticsearch），后端采用了面向接口编程。
+业务行为抽象在 `DataSourcePort` 接口内，针对新 DB 仅需开发对应的 `Adapter`。在运行时，请求路由根据外部入参 `x-data-source-id` 经由 `DataSourceFactory` **动态实例化**并向 `QueryService` 进行依赖注入。业务层完全不感知底层实现，实现了完美解耦。
 
----
+#### AST 结构化查询与智能穿透设计 (Smart Drill-Through)
+传统的 BI 系统在支持基于聚合 SQL（甚至多表 JOIN）查看底层明细时极易由于简单的正则拼接造成语法崩溃。本平台通过引入 `sqlglot` 作为 SQL 解析库，实现了精准的 **Smart Projection（智能投影穿透）**：
+1. 后端将前端记录的长文本 SQL 转化为抽象语法树 (AST)。
+2. 根据被点击的具体指标类型进行结构变化判断：
+   - 比如点击普通 `SUM` 指标：抽离聚合层，直接返回 `SELECT *` 底层宽表供明细对账。
+   - 比如点击 `COUNT(DISTINCT table.column)` 去重指标：改写投影为 `SELECT table.* LIMIT 1 BY table.column`，自动过滤出确切的数量，并携带实体自身的上下文供参考，告别了无意义的数据膨胀。
+3. 动态且安全地合并保留原始的 `WHERE`/`JOIN` 子句，外加前端点击的维度组合，最终重编译为原生语句并执行。
 
 ## 3. 前端架构 (Frontend)
 
-前端基于 **Vue 3 + Vite**，利用了成熟的高级组件生态来构建数据仪表盘。
+前端作为承载可视化与数据分析的门户，基于 **Vue 3 (Composition API) + Vite** 构建，采用了成熟的高级组件生态来支持极客编辑与图表拖拽。
 
 ### 3.1 核心依赖栈
-*   **核心引擎**：Vue 3 (Composition API 模式)
+*   **核心引擎**：Vue 3
 *   **UI 骨架**：Element Plus
-*   **拖拽引擎**：`vue3-grid-layout`
-*   **可视化库**：`echarts` + `vue-echarts`
+*   **拖拽引擎**：`vue3-grid-layout`（驱动无限画布）
+*   **可视化图表**：Apache ECharts + `vue-echarts`
 
-### 3.2 UI 视图与组件分布
-系统为了给不同的用户角色提供最佳体验，主要通过 Tab 拆分为三大独立空间（集中在 `BiDashboard.vue` 内实现状态解耦）：
+### 3.2 UI 视图模块设计
+为了兼顾不同类型用户（分析师、业务阅读方、管理员），前端功能被剥离进三个独立的标签页空间（在 `BiDashboard.vue` 内实现）：
 
 1.  **配置中心 (Data Source Management)**
-    *   偏向 DevOps 角色，用于登记业务库。
-2.  **数据看板阅览区 (Dashboards Viewer)**
-    *   偏向业务方 (C Level 或运营)。这块视图极度干净，隐藏了所有的代码层。利用 `vue-grid-layout` 展现事先组装好的 `Widget` (以 Table 或 V-Chart 组件挂载)。提供预警高亮过滤入口，同时支持在任意图表或列表上触发深度点击交互探查明细。
-3.  **SQL 分析工作台 (Query Editor)**
-    *   偏向分析师。左栏调用后端提供的 DB-metadata 接口生成表结构树，主栏为带各种辅助操作（格式化、转图表预览、另存为组件）的大型代码编辑器。
+    *   偏向 DevOps 与管理员角色，用于登记、验证和打通底层的数据库。
+2.  **分析工作台 (Query Editor Workspace)**
+    *   偏向数据分析师的生产车间。根据选中的数据源，左侧**动态生成业务库的物理表结构树**。主视区是带语法的 SQL 编辑器。查询结果支持预览，并可一键**将表格无缝切换为柱状图、饼图等 ECharts 可视化图表**，最终将其沉淀为一个独立的 “Query 图表组件”。
+3.  **数据看板阅览区 (Dashboards Viewer)**
+    *   偏向最终业务方的展示层。这块视图纯粹且无代码干扰。基于 `vue-grid-layout` 实现**大屏无限画布**，用户可以将已造好的图表组件拖入，自由调整坐标、大小。
+    *   同时，这里也提供了各组件的独立预警阈值入口（**条件格式高亮**），所有呈现在画布上的 ECharts 图表或 Table 均共享全局的 Drill-through（智能穿透）监听交互功能。
 
-### 3.3 交互状态管理
-前端放弃了全局的庞大 Pinia，采用组合式 API (Composition API) 实现单页面应用内不同 Tab 块间状态的安全隔离。
-例如：看板阅览区持有的 ECharts 对象及 TableData（即 `boardTableData` / `boardColumns`），与极客工作台中产生的测试数据 (`editorTableData`) 物理隔离，互不干扰，从而支撑了修改、对撞验证后无缝刷新到前台面板的操作连贯性。
+### 3.3 交互状态隔离管理
+前端充分利用了 Composition API 的特质，在不引入全局 Pinia 的情况下实现了三大 Tab 块之间的**数据物理隔离**。比如在看板区展示的数据结果集合与在 SQL 工作台中调试用的验证集合互相独立，极大增强了修改测试阶段的安全性和无缝连贯的操作体验。
