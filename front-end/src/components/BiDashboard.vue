@@ -64,7 +64,7 @@
               <div class="board-title-section" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                 <h2>{{ activeDashboard.name }}</h2>
                 <div>
-                  <el-button type="primary" plain icon="Plus" @click="showAddWidgetDialog">添加图表 (Query)</el-button>
+                  <el-button type="primary" plain icon="Plus" @click="showAddWidgetDialog">添加查询图表</el-button>
                   <el-button type="success" icon="Check" @click="saveDashboardLayout" :loading="savingLayout">保存布局</el-button>
                 </div>
               </div>
@@ -155,7 +155,7 @@
         <el-container class="editor-main-container">
           <el-aside width="250px" class="editor-aside">
             <div style="padding: 10px; border-bottom: 1px solid #eee;">
-              <h4>已保存的查询组件</h4>
+              <h4>已保存的查询模型</h4>
             </div>
             <el-menu class="table-tree-menu">
               <el-menu-item 
@@ -198,7 +198,7 @@
                   <el-button type="primary" size="large" @click="runEditorQuery" :loading="editorLoading">
                     执行查询
                   </el-button>
-                  <el-button @click="showSaveQueryDialog" size="large" type="success" plain>保存为 Query 组件</el-button>
+                  <el-button @click="showSaveQueryDialog" size="large" type="success" plain>保存查询模型</el-button>
                   <el-button @click="editorSql = 'SELECT * FROM bi_demo.orders LIMIT 10'" size="large">重置</el-button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -268,9 +268,9 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="addWidgetDialogVisible" title="添加 Query 组件到看板" width="40%">
+    <el-dialog v-model="addWidgetDialogVisible" title="添加查询图表到看板" width="40%">
       <el-table :data="savedQueries" border stripe>
-        <el-table-column prop="name" label="Query 名称" />
+        <el-table-column prop="name" label="查询名称" />
         <el-table-column prop="chart_type" label="类型" width="100">
           <template #default="scope"><el-tag size="small" type="info">{{ scope.row.chart_type }}</el-tag></template>
         </el-table-column>
@@ -299,15 +299,17 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="saveQueryDialogVisible" title="保存 Query 组件" width="30%">
+    <el-dialog v-model="saveQueryDialogVisible" title="保存查询模型" width="30%">
       <el-form @submit.prevent>
-        <el-form-item label="组件名称">
-          <el-input v-model="saveQueryName" placeholder="请输入标识名称" />
+        <el-form-item label="查询名称">
+          <el-input v-model="saveQueryName" placeholder="请输入模型名称" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="saveQueryDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveCurrentQuery" :loading="savingQuery">保存</el-button>
+        <span class="dialog-footer">
+          <el-button @click="saveQueryDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveCurrentQuery" :loading="savingQuery">保存</el-button>
+        </span>
       </template>
     </el-dialog>
 
@@ -577,6 +579,10 @@ const runEditorQuery = async () => {
 
 const showSaveQueryDialog = () => { saveQueryName.value = ''; saveQueryDialogVisible.value = true }
 const saveCurrentQuery = async () => {
+  if (!saveQueryName.value.trim()) {
+    ElMessage.warning('请输入名称')
+    return
+  }
   savingQuery.value = true
   try {
     await axios.post(META_API_BASE + '/', { 
@@ -585,8 +591,14 @@ const saveCurrentQuery = async () => {
       data_source_id: currentDataSourceId.value,
       chart_type: editorChartType.value
     })
-    ElMessage.success('保存成功'); saveQueryDialogVisible.value = false; fetchSavedQueries()
-  } catch (e) {} finally { savingQuery.value = false }
+    ElMessage.success('保存成功')
+    saveQueryDialogVisible.value = false
+    fetchSavedQueries()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '保存失败')
+  } finally { 
+    savingQuery.value = false 
+  }
 }
 const deleteSavedQuery = async (id) => {
   await axios.delete(`${META_API_BASE}/${id}`); fetchSavedQueries()
