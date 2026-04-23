@@ -216,6 +216,7 @@
                   <el-button @click="editorSql = 'SELECT * FROM bi_demo.orders LIMIT 10'" size="large">重置</el-button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
+                  <el-button type="warning" plain icon="Filter" size="small" @click="openEditorThresholds" title="配置默认预警染色">预警配置</el-button>
                   <span>图表类型预览：</span>
                   <el-select v-model="editorChartType" style="width: 120px">
                     <el-option label="Table 表格" value="table" />
@@ -236,6 +237,7 @@
                 stripe 
                 style="width: 100%; height: 100%" 
                 v-loading="editorLoading"
+                :cell-style="(ctx) => getWidgetCellStyle(ctx, editorThresholds)"
                 @cell-click="(row, col, cell, evt) => handleCellClick(row, col, editorSql, editorMetricColumns, currentDataSourceId)"
               >
                 <el-table-column v-for="col in editorColumns" :key="col" :prop="col" :label="col">
@@ -353,17 +355,30 @@
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="条件" width="120">
+        <el-table-column label="条件" width="130">
           <template #default="scope">
             <el-select v-model="scope.row.operator" placeholder="条件" size="small">
-              <el-option label="大于 (>)" value=">" /><el-option label="小于 (<)" value="<" /><el-option label="等于 (=)" value="=" /><el-option label="大于等于 (>=)" value=">=" /><el-option label="小于等于 (<=)" value="<=" />
+              <el-option label="大于 (>)" value=">" />
+              <el-option label="小于 (<)" value="<" />
+              <el-option label="等于 (=)" value="=" />
+              <el-option label="大于等于 (>=)" value=">=" />
+              <el-option label="小于等于 (<=)" value="<=" />
+              <el-option label="介于 (between)" value="between" />
+              <el-option label="不介于 (not between)" value="not_between" />
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="阈值" width="150">
-          <template #default="scope"><el-input-number v-model="scope.row.value" :controls="false" style="width: 100%" size="small" /></template>
+        <el-table-column label="阈值" width="220">
+          <template #default="scope">
+            <div v-if="scope.row.operator === 'between' || scope.row.operator === 'not_between'" style="display: flex; align-items: center; gap: 5px;">
+              <el-input-number v-model="scope.row.value" :controls="false" style="width: 100%" size="small" />
+              <span>~</span>
+              <el-input-number v-model="scope.row.value_max" :controls="false" style="width: 100%" size="small" />
+            </div>
+            <el-input-number v-else v-model="scope.row.value" :controls="false" style="width: 100%" size="small" />
+          </template>
         </el-table-column>
-        <el-table-column label="背景色" width="100">
+        <el-table-column label="颜色" width="100">
           <template #default="scope"><el-color-picker v-model="scope.row.color" show-alpha size="small" /></template>
         </el-table-column>
         <el-table-column label="操作" width="80" align="center">
@@ -443,6 +458,8 @@ const currentThresholds = ref([])
 const currentThresholdWidgetId = ref(null)
 const currentThresholdWidgetCols = ref([])
 const savingThresholds = ref(false)
+const editorThresholds = ref([]) // 用于工作台的默认阈值状态
+const isEditorThresholdMode = ref(false)
 
 // --- Parsing & ECharts Logic ---
 const splitSelectClause = (clause) => {
@@ -607,7 +624,8 @@ const saveCurrentQuery = async () => {
       name: saveQueryName.value, 
       raw_sql: editorSql.value, 
       data_source_id: currentDataSourceId.value,
-      chart_type: editorChartType.value
+      chart_type: editorChartType.value,
+      thresholds: editorThresholds.value
     })
     ElMessage.success('保存成功')
     saveQueryDialogVisible.value = false
@@ -622,7 +640,9 @@ const deleteSavedQuery = async (id) => {
   await axios.delete(`${META_API_BASE}/${id}`); fetchSavedQueries()
 }
 const loadQueryToEditor = (q) => {
-  editorSql.value = q.raw_sql; currentDataSourceId.value = q.data_source_id; editorChartType.value = q.chart_type || 'table'; runEditorQuery()
+  editorSql.value = q.raw_sql; currentDataSourceId.value = q.data_source_id; editorChartType.value = q.chart_type || 'table'
+  editorThresholds.value = Array.isArray(q.thresholds) ? JSON.parse(JSON.stringify(q.thresholds)) : []
+  runEditorQuery()
 }
 
 // --- Dashboards ---
@@ -734,14 +754,33 @@ const saveBoardName = async () => {
 
 // --- Thresholds ---
 const openWidgetThresholds = (widget) => {
+  isEditorThresholdMode.value = false
   currentThresholdWidgetId.value = widget.query_id
   currentThresholds.value = Array.isArray(widget.query_thresholds) ? JSON.parse(JSON.stringify(widget.query_thresholds)) : []
   currentThresholdWidgetCols.value = widgetData.value[widget.i]?.columns || []
   thresholdDialogVisible.value = true
 }
-const addThresholdRule = () => { currentThresholds.value.push({ column: '', operator: '>', value: 0, color: 'rgba(245, 108, 108, 0.2)' }) }
+const openEditorThresholds = () => {
+  if (editorColumns.value.length === 0) {
+    ElMessage.warning('请先执行查询获取结果列'); return
+  }
+  isEditorThresholdMode.value = true
+  currentThresholds.value = JSON.parse(JSON.stringify(editorThresholds.value))
+  currentThresholdWidgetCols.value = editorColumns.value
+  thresholdDialogVisible.value = true
+}
+
+const addThresholdRule = () => { currentThresholds.value.push({ column: '', operator: '>', value: 0, value_max: 0, color: 'rgba(245, 108, 108, 0.2)' }) }
 const removeThresholdRule = (idx) => { currentThresholds.value.splice(idx, 1) }
+
 const saveThresholds = async () => {
+  if (isEditorThresholdMode.value) {
+    editorThresholds.value = JSON.parse(JSON.stringify(currentThresholds.value))
+    thresholdDialogVisible.value = false
+    ElMessage.success('默认预警配置已暂存，随查询保存时生效')
+    return
+  }
+
   savingThresholds.value = true
   try {
     const res = await axios.put(`${META_API_BASE}/${currentThresholdWidgetId.value}`, { thresholds: currentThresholds.value })
@@ -751,6 +790,7 @@ const saveThresholds = async () => {
     thresholdDialogVisible.value = false
   } catch (e) {} finally { savingThresholds.value = false }
 }
+
 const getWidgetCellStyle = ({ row, column }, thresholds) => {
   if (!thresholds || thresholds.length === 0) return {}
   const colName = column.property
@@ -758,15 +798,32 @@ const getWidgetCellStyle = ({ row, column }, thresholds) => {
     if (rule.column === colName) {
       const cellValue = Number(row[colName])
       if (isNaN(cellValue)) continue
-      const ruleValue = Number(rule.value); let match = false
+      const ruleValue = Number(rule.value)
+      const ruleValueMax = Number(rule.value_max)
+      let match = false
       switch (rule.operator) {
         case '>': match = cellValue > ruleValue; break;
         case '<': match = cellValue < ruleValue; break;
         case '=': match = cellValue === ruleValue; break;
         case '>=': match = cellValue >= ruleValue; break;
         case '<=': match = cellValue <= ruleValue; break;
+        case 'between': match = cellValue >= ruleValue && cellValue <= ruleValueMax; break;
+        case 'not_between': match = cellValue < ruleValue || cellValue > ruleValueMax; break;
       }
-      if (match) return { backgroundColor: rule.color }
+      if (match) {
+        // Calculate relative luminance to determine text color
+        let textColor = '#303133' // default dark text
+        if (rule.color && rule.color.startsWith('rgba')) {
+           // Extremely simple heuristic: if it's a solid, non-transparent dark color, use white text. 
+           // Usually users pick light transparent colors (alpha < 0.5) so dark text is fine.
+           const parts = rule.color.match(/[\d.]+/g)
+           if (parts && parts.length === 4) {
+             const alpha = parseFloat(parts[3])
+             if (alpha > 0.6) textColor = '#ffffff'
+           }
+        }
+        return { backgroundColor: rule.color, color: textColor }
+      }
     }
   }
   return {}
