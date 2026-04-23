@@ -4,6 +4,10 @@
 
 > **📚 深入了解系统架构**：
 > 在经过了三个重大阶段（Phase 1~3）的重构与重塑后，系统已经演变为一个支持无限拖拽画布与智能图表下钻的现代商业级 BI 平台雏形。关于系统演进的核心思路、前后端目录分工职责以及完整的数据流向图，请务必参阅最新的 [**ARCHITECTURE.md 架构文档**](./ARCHITECTURE.md)。
+> 
+> **🔧 数据库字典**：
+> - 业务测试用表结构 (ClickHouse)：[table.md](./table.md)
+> - 系统元数据表结构 (PostgreSQL)：[metadata_schema.md](./metadata_schema.md)
 
 ## 1. 架构与设计 (Backend)
 
