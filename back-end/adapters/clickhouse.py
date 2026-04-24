@@ -11,31 +11,6 @@ class ClickHouseAdapter(DataSourcePort):
             host=host, port=port, username=username, password=password, database=database
         )
 
-    def _apply_macros_to_ast(self, ast: exp.Expression, macros: dict) -> exp.Expression:
-        """
-        遍历 AST 树，寻找所有的 Table 节点，如果表名中包含 {{macro_key}} 占位符，
-        则安全地替换为宏字典中的实际值。
-        """
-        if not macros:
-            return ast
-
-        def _replace_macro(node):
-            if isinstance(node, exp.Table):
-                # 提取表名，可能带引号，这里简单处理
-                table_name = node.this.name
-                # 检查是否存在形如 {{var}} 的占位符
-                for k, v in macros.items():
-                    macro_pattern = f"{{{{{k}}}}}"
-                    if macro_pattern in table_name:
-                        new_table_name = table_name.replace(macro_pattern, str(v))
-                        node.set("this", exp.Identifier(this=new_table_name))
-            return node
-
-        # 深度克隆一份 AST 防止修改原始引用（如果不涉及缓存可直接改）
-        # 这里直接通过 transform 方法在整棵树上应用转换
-        ast = ast.transform(_replace_macro)
-        return ast
-
     def _build_sql(self, query: QueryRequest) -> str:
         select_parts = []
         for dim in query.dimensions:
@@ -77,13 +52,11 @@ class ClickHouseAdapter(DataSourcePort):
 
     def execute_raw_query(self, query: RawQueryRequest) -> QueryResult:
         try:
-            # First parse the raw SQL to AST so we can safely inject macros if present
+            # At this point, the SQL has already been pre-compiled safely with macros by the Service layer.
+            # We still parse it back and forth through sqlglot to ensure standard dialect output and validation.
             ast = sqlglot.parse_one(query.sql, read="clickhouse")
-            if query.macros:
-                ast = self._apply_macros_to_ast(ast, query.macros)
-                
             final_sql = ast.sql(dialect="clickhouse")
-            print(f"[ClickHouse] Executing Raw SQL with Macros: {final_sql}")
+            print(f"[ClickHouse] Executing Raw SQL: {final_sql}")
             
             result = self.client.query(final_sql)
             columns = result.column_names
@@ -91,13 +64,8 @@ class ClickHouseAdapter(DataSourcePort):
             return QueryResult(columns=columns, data=data)
         except Exception as e:
             # Fallback if parsing fails (for highly complex custom clickhouse syntax not supported by sqlglot)
-            # We try simple string replacement as an extreme fallback, though AST is much preferred
             print(f"[ClickHouse] AST Parse Failed, attempting fallback execution: {e}")
             fallback_sql = query.sql
-            if query.macros:
-                for k, v in query.macros.items():
-                    fallback_sql = fallback_sql.replace(f"{{{{{k}}}}}", str(v))
-            
             result = self.client.query(fallback_sql)
             columns = result.column_names
             data = [dict(zip(columns, row)) for row in result.result_rows]
@@ -105,13 +73,9 @@ class ClickHouseAdapter(DataSourcePort):
 
     def execute_drill_through(self, request: DrillThroughRequest) -> DrillThroughResult:
         try:
-            # Parse original SQL safely using sqlglot
+            # At this point, request.raw_sql is already macro-free thanks to the Service layer pre-compilation
             ast = sqlglot.parse_one(request.raw_sql, read="clickhouse")
             
-            # Apply macros first before extracting table structures
-            if request.macros:
-                ast = self._apply_macros_to_ast(ast, request.macros)
-                
             # Find the targeted metric if specified
             target_expr = None
             if request.clicked_metric:

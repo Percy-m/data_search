@@ -34,11 +34,12 @@
 为了避免数据库绑定困境（如未来需要接入 MySQL、Elasticsearch），后端采用了面向接口编程。
 业务行为抽象在 `DataSourcePort` 接口内，针对新 DB 仅需开发对应的 `Adapter`。在运行时，请求路由根据外部入参 `x-data-source-id` 经由 `DataSourceFactory` **动态实例化**并向 `QueryService` 进行依赖注入。业务层完全不感知底层实现，实现了完美解耦。
 
-#### 动态表映射与宏替换 (Global Macros AST Injection)
+#### 动态宏变量预编译 (Secure Macro Pre-Compilation)
 为了解决数仓中业务表常常由于时间或版本分表（如 `orders_v1` 到 `orders_v2`）导致的 SQL 维护困难问题，平台实现了全局宏替换机制：
-1. 分析师可以在编写固化查询时使用双大括号定义宏变量（如 `SELECT * FROM orders_{{version}}`）。
-2. 在前端看板通过全局控件输入映射关系。
-3. 后端在执行前使用 `sqlglot` 遍历解析出所有的 `Table` 节点，并在 **AST 语法树级别完成原地的安全替换**，有效规避了传统字符串正则 Replace 可能会引发的别名误伤或 SQL 注入风险。
+1. 分析师可以在编写固化查询时使用双大括号定义宏变量（如 `SELECT * FROM orders_{{version}} WHERE cty='{{my_country}}'`）。
+2. 在前端看板通过全局控件输入映射关系字典并传递。
+3. 后端在业务服务层 (`QueryService`) 将宏处理作为请求流的**前置守卫**。通过对宏传入的值进行极其严格的正则白名单约束（阻断单引号等 SQL 注入高危字符），实现安全的预编译文本替换。
+4. 替换出纯净合法的 SQL 后，再向后投递给 `sqlglot` 等 AST 解析器，彻底避开了不同数据库方言解析器对 `{}` 符号可能会产生的语法树解析冲突。
 
 #### AST 结构化查询与智能穿透设计 (Smart Drill-Through)
 传统的 BI 系统在支持基于聚合 SQL（甚至多表 JOIN）查看底层明细时极易由于简单的正则拼接造成语法崩溃。本平台通过引入 `sqlglot` 作为 SQL 解析库，实现了精准的 **Smart Projection（智能投影穿透）**：
