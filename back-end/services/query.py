@@ -1,13 +1,15 @@
 from core.models import QueryRequest, DrillDownRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 from core.ports import DataSourcePort
+from core.cache import generate_cache_key, get_cached_result, set_cached_result
 
 class QueryService:
     """
     通用查询与数据下钻服务
     不依赖于具体的数据源实现，也不依赖于具体的数据表字段
     """
-    def __init__(self, data_source: DataSourcePort):
+    def __init__(self, data_source: DataSourcePort, data_source_id: str = "default"):
         self.data_source = data_source
+        self.data_source_id = data_source_id
 
     def query(self, request: QueryRequest) -> QueryResult:
         """
@@ -17,9 +19,22 @@ class QueryService:
 
     def raw_query(self, request: RawQueryRequest) -> QueryResult:
         """
-        执行原生多表/复杂SQL查询
+        执行原生多表/复杂SQL查询，并带有 LRU 级内存缓存支持
         """
-        return self.data_source.execute_raw_query(request)
+        cache_key = generate_cache_key(self.data_source_id, request.sql, request.macros)
+        
+        cached_res = get_cached_result(cache_key)
+        if cached_res is not None:
+            print(f"[Cache] HIT for query fingerprint: {cache_key[:8]}")
+            return cached_res
+            
+        print(f"[Cache] MISS for query fingerprint: {cache_key[:8]}, querying database...")
+        # 实际查询底层数据源
+        result = self.data_source.execute_raw_query(request)
+        
+        # 写入缓存
+        set_cached_result(cache_key, result)
+        return result
 
     def drill_through(self, request: DrillThroughRequest) -> DrillThroughResult:
         """

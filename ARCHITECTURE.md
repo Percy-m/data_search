@@ -48,6 +48,13 @@
    - 比如点击 `COUNT(DISTINCT table.column)` 去重指标：改写投影为 `SELECT table.* LIMIT 1 BY table.column`，自动过滤出确切的数量，并携带实体自身的上下文供参考，告别了无意义的数据膨胀。
 3. 动态且安全地合并保留原始的 `WHERE`/`JOIN` 子句，外加前端点击的维度组合，最终重编译为原生语句并执行。
 
+#### 核心查询 LRU 缓存机制 (In-Memory Query Caching)
+针对 BI 看板场景下每天产生的高频重复全表聚合查询（如 T+1 报表），在服务层 (`QueryService`) 引入了高度内聚的轻量级内存缓存策略：
+- 使用 `cachetools.TTLCache` 实现 LRU (Least Recently Used) 驱逐算法。
+- **缓存容量**：最大存放 1000 条最近且最常访问的查询结果，避免内存打爆。
+- **生命周期 (TTL)**：缓存有效期设为 7 天。
+- **唯一指纹 (Fingerprint)**：每次请求利用 `SHA-256` 将数据源 ID、SQL 文本与宏变量配置字典等参数组合散列为唯一键值，确保条件发生任何细微变动时皆能精准穿透。
+
 ## 3. 前端架构 (Frontend)
 
 前端作为承载可视化与数据分析的门户，基于 **Vue 3 (Composition API) + Vite** 构建，采用了成熟的高级组件生态来支持极客编辑与图表拖拽。
