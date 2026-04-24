@@ -220,8 +220,14 @@
                   <el-button type="primary" size="large" @click="runEditorQuery" :loading="editorLoading">
                     执行查询
                   </el-button>
-                  <el-button @click="showSaveQueryDialog" size="large" type="success" plain>保存查询</el-button>
-                  <el-button @click="editorSql = 'SELECT * FROM bi_demo.orders LIMIT 10'" size="large">重置</el-button>
+                  <template v-if="!currentEditorQueryId">
+                    <el-button @click="showSaveQueryDialog" size="large" type="success" plain>保存查询</el-button>
+                  </template>
+                  <template v-else>
+                    <el-button @click="updateCurrentQuery" size="large" type="primary" plain :loading="savingQuery">更新当前查询</el-button>
+                    <el-button @click="showSaveQueryDialog" size="large" type="success" plain>另存为新查询</el-button>
+                  </template>
+                  <el-button @click="resetEditor" size="large">重置</el-button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                   <el-button type="success" plain icon="Download" size="small" @click="exportEditorToExcel" title="导出查询结果">导出 Excel</el-button>
@@ -478,6 +484,7 @@ const widgetLoading = ref({})
 const currentDataSourceId = ref(null)
 const tables = ref([])
 const tablesLoading = ref(false)
+const currentEditorQueryId = ref(null) // 记录当前正在编辑的已存查询的 ID
 const editorSql = ref('SELECT o.country, sum(o.revenue) as total_rev \nFROM bi_demo.orders o \nGROUP BY o.country')
 const editorLoading = ref(false)
 const editorTableData = ref([])
@@ -680,7 +687,7 @@ const saveCurrentQuery = async () => {
   }
   savingQuery.value = true
   try {
-    await axios.post(META_API_BASE + '/', { 
+    const res = await axios.post(META_API_BASE + '/', { 
       name: saveQueryName.value, 
       raw_sql: editorSql.value, 
       data_source_id: currentDataSourceId.value,
@@ -688,6 +695,7 @@ const saveCurrentQuery = async () => {
       thresholds: editorThresholds.value
     })
     ElMessage.success('保存成功')
+    currentEditorQueryId.value = res.data.id // 保存成功后，自动进入更新态
     saveQueryDialogVisible.value = false
     fetchSavedQueries()
   } catch (e) {
@@ -696,19 +704,58 @@ const saveCurrentQuery = async () => {
     savingQuery.value = false 
   }
 }
+
+const updateCurrentQuery = async () => {
+  if (!currentEditorQueryId.value) return
+  savingQuery.value = true
+  try {
+    await axios.put(`${META_API_BASE}/${currentEditorQueryId.value}`, { 
+      raw_sql: editorSql.value, 
+      data_source_id: currentDataSourceId.value,
+      chart_type: editorChartType.value,
+      thresholds: editorThresholds.value
+    })
+    ElMessage.success('更新成功')
+    
+    // 如果该组件存在于当前激活的看板中，一并刷新看板
+    if (activeDashboard.value) {
+      const needRefresh = activeDashboardLayout.value.some(w => w.query_id === currentEditorQueryId.value)
+      if (needRefresh) refreshActiveDashboard()
+    }
+    fetchSavedQueries()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '更新失败')
+  } finally { 
+    savingQuery.value = false 
+  }
+}
+
 const deleteSavedQuery = async (id) => {
   try {
     await axios.delete(`${META_API_BASE}/${id}`)
     ElMessage.success('删除成功')
+    if (currentEditorQueryId.value === id) resetEditor() // 如果刚好在编辑这个被删除的查询，触发重置
     fetchSavedQueries()
   } catch (e) {
     ElMessage.error('删除失败')
   }
 }
+
 const loadQueryToEditor = (q) => {
+  currentEditorQueryId.value = q.id
   editorSql.value = q.raw_sql; currentDataSourceId.value = q.data_source_id; editorChartType.value = q.chart_type || 'table'
   editorThresholds.value = Array.isArray(q.thresholds) ? JSON.parse(JSON.stringify(q.thresholds)) : []
   runEditorQuery()
+}
+
+const resetEditor = () => {
+  currentEditorQueryId.value = null
+  editorSql.value = 'SELECT * FROM bi_demo.orders LIMIT 10'
+  editorThresholds.value = []
+  editorTableData.value = []
+  editorColumns.value = []
+  editorMetricColumns.value = new Set()
+  editorChartType.value = 'table'
 }
 
 // --- Dashboards ---
