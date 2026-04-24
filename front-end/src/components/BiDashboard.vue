@@ -215,8 +215,8 @@
                 placeholder="请输入 SQL 语句..."
                 class="sql-input"
               />
-              <div class="action-bar" style="justify-content: space-between">
-                <div>
+              <div class="action-bar">
+                <div class="left-actions">
                   <el-button type="primary" size="large" @click="runEditorQuery" :loading="editorLoading">
                     执行查询
                   </el-button>
@@ -229,11 +229,11 @@
                   </template>
                   <el-button @click="resetEditor" size="large">重置</el-button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <el-button type="success" plain icon="Download" size="small" @click="exportEditorToExcel" title="导出查询结果">导出 Excel</el-button>
-                  <el-button type="warning" plain icon="Filter" size="small" @click="openEditorThresholds" title="配置默认预警染色">预警配置</el-button>
-                  <span>图表类型预览：</span>
-                  <el-select v-model="editorChartType" style="width: 120px">
+                <div class="right-actions">
+                  <el-button type="success" plain icon="Download" size="large" @click="exportEditorToExcel" title="导出查询结果">导出</el-button>
+                  <el-button type="warning" plain icon="Filter" size="large" @click="openEditorThresholds" title="配置默认预警染色">预警配置</el-button>
+                  <span style="font-size: 14px; color: #606266; margin-left: 5px;">预览：</span>
+                  <el-select v-model="editorChartType" style="width: 120px" size="large">
                     <el-option label="Table 表格" value="table" />
                     <el-option label="Bar 柱状图" value="bar" />
                     <el-option label="Line 折线图" value="line" />
@@ -1105,7 +1105,8 @@ onMounted(() => {
 .editor-container { padding: 10px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; overflow: hidden; }
 .query-box { background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ebeef5; flex-shrink: 0; }
 .sql-input { font-family: 'Courier New', Courier, monospace; }
-.action-bar { margin-top: 15px; display: flex; gap: 10px; }
+.action-bar { margin-top: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+.left-actions, .right-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .result-box { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 .clickable-metric { color: #409EFF; font-weight: bold; cursor: pointer; text-decoration: underline; transition: all 0.2s; }
 .clickable-metric:hover { color: #66b1ff; }
