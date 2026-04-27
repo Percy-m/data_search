@@ -5,7 +5,7 @@
 - **Language**: 所有与用户的对话和回答**必须使用中文**。
 - **Version Control**: 每次任务执行完毕或完成一个逻辑闭环后，必须进行 `git commit`。
 - **Documentation Sync**: 
-  - 修改 `back-end/core/meta_models.py` (PostgreSQL 表结构) 后，必须同步更新 `metadata_schema.md`。
+  - 修改 `back-end/infrastructure/orm_models.py` (PostgreSQL 表结构) 后，必须同步更新 `metadata_schema.md`。
   - 涉及系统架构、模块职责或部署拓扑的改动，必须同步更新 `4_plus_1_views.md` 中的 PlantUML 代码。
   - 任务完成后，检查并更新 `AGENTS.md` 或 `README.md` 以保持文档最新。
 - **Local DB Connection**: 本机 ClickHouse 客户端一律采用 `clickhouse client` 命令进行连接和查询。
@@ -28,7 +28,8 @@
 
 Follows **Ports and Adapters (Hexagonal) Architecture** to remain database-agnostic. Code should ensure high availability, scalability, and domain abstraction.
 
-- `back-end/core/`: Pure domain models (`models.py`), interface definitions (`ports.py`), and PostgreSQL ORM models (`meta_models.py`).
+- `back-end/core/`: Pure domain models (`models.py`), interface definitions (`ports.py`).
+- `back-end/infrastructure/`: Concrete data persistence implementations (`repositories.py`), PostgreSQL ORM models (`orm_models.py`), and DB session setup (`database.py`).
 - `back-end/adapters/`: Concrete DB implementations (e.g., `clickhouse.py`). All SQL translation lives here.
 - `back-end/services/`: Core business logic (`query.py`). Operates purely on `DataSourcePort`.
 - `back-end/api/`: FastAPI routes. Dynamically instantiates the correct adapter via `x-data-source-id` header fetching config from PostgreSQL.
