@@ -4,7 +4,7 @@ from api.routes import router as query_router
 from api.saved_queries import router as saved_queries_router
 from api.data_sources import router as data_sources_router
 from api.dashboards import router as dashboards_router
-from core.database import engine, Base
+from infrastructure.database import engine, Base
 
 # Create the database tables automatically on startup
 Base.metadata.create_all(bind=engine)

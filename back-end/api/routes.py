@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends, Header
 from sqlalchemy.orm import Session
 from core.models import QueryRequest, DrillDownRequest, QueryResult, RawQueryRequest, DrillThroughRequest, DrillThroughResult
 from core.factory import DataSourceFactory
-from core.database import get_db
-from core.meta_models import DataSource
+from infrastructure.database import get_db
+from infrastructure.repositories import SQLAlchemyDataSourceRepository
+from core.ports import DataSourceRepositoryPort
 from services.query import QueryService
 import os
 
@@ -15,12 +16,15 @@ DataSourceFactory.register("duckdb", DuckDBAdapter)
 
 router = APIRouter()
 
+def get_ds_repository(db: Session = Depends(get_db)) -> DataSourceRepositoryPort:
+    return SQLAlchemyDataSourceRepository(db)
+
 # 获取数据源服务的依赖注入，现在支持通过 Header 传递 x-data-source-id
-def get_query_service(x_data_source_id: int = Header(None), db: Session = Depends(get_db)) -> QueryService:
+def get_query_service(x_data_source_id: int = Header(None), repo: DataSourceRepositoryPort = Depends(get_ds_repository)) -> QueryService:
     try:
         # 如果前端传递了明确的数据源 ID，则从数据库拉取连接配置
         if x_data_source_id:
-            ds_record = db.query(DataSource).filter(DataSource.id == x_data_source_id).first()
+            ds_record = repo.get_by_id(x_data_source_id)
             if not ds_record:
                 raise ValueError(f"Data source with id {x_data_source_id} not found")
             

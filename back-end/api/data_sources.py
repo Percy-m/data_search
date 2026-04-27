@@ -4,11 +4,15 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
-from core.database import get_db
-from core.meta_models import DataSource
+from infrastructure.database import get_db
+from infrastructure.repositories import SQLAlchemyDataSourceRepository
 from core.factory import DataSourceFactory
+from core.ports import DataSourceRepositoryPort
 
 router = APIRouter()
+
+def get_ds_repository(db: Session = Depends(get_db)) -> DataSourceRepositoryPort:
+    return SQLAlchemyDataSourceRepository(db)
 
 class DataSourceCreate(BaseModel):
     name: str
@@ -37,18 +41,15 @@ class DataSourceResponse(BaseModel):
     username: Optional[str]
     database: Optional[str]
     created_at: datetime
-    # Intentionally omitted password from response
 
     class Config:
         from_attributes = True
 
 @router.post("/", response_model=DataSourceResponse)
-def create_data_source(ds: DataSourceCreate, db: Session = Depends(get_db)):
-    db_ds = db.query(DataSource).filter(DataSource.name == ds.name).first()
-    if db_ds:
+def create_data_source(ds: DataSourceCreate, repo: DataSourceRepositoryPort = Depends(get_ds_repository)):
+    if repo.get_by_name(ds.name):
         raise HTTPException(status_code=400, detail="Data source name already exists")
     
-    # Try to test connection before saving
     try:
         adapter = DataSourceFactory.create(
             ds.type,
@@ -63,37 +64,29 @@ def create_data_source(ds: DataSourceCreate, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to connect: {str(e)}")
 
-    new_ds = DataSource(**ds.dict())
-    db.add(new_ds)
-    db.commit()
-    db.refresh(new_ds)
-    return new_ds
+    return repo.create(ds.dict())
 
 @router.get("/", response_model=List[DataSourceResponse])
-def get_data_sources(db: Session = Depends(get_db)):
-    return db.query(DataSource).all()
+def get_data_sources(repo: DataSourceRepositoryPort = Depends(get_ds_repository)):
+    return repo.get_all()
 
 @router.put("/{ds_id}", response_model=DataSourceResponse)
-def update_data_source(ds_id: int, ds: DataSourceUpdate, db: Session = Depends(get_db)):
-    db_ds = db.query(DataSource).filter(DataSource.id == ds_id).first()
+def update_data_source(ds_id: int, ds: DataSourceUpdate, repo: DataSourceRepositoryPort = Depends(get_ds_repository)):
+    db_ds = repo.get_by_id(ds_id)
     if not db_ds:
         raise HTTPException(status_code=404, detail="Data source not found")
     
     if ds.name is not None and ds.name != db_ds.name:
-        existing = db.query(DataSource).filter(DataSource.name == ds.name).first()
-        if existing:
+        if repo.get_by_name(ds.name):
             raise HTTPException(status_code=400, detail="Data source name already exists")
     
-    # Collect new values for testing connection
     test_type = ds.type if ds.type is not None else db_ds.type
     test_host = ds.host if ds.host is not None else db_ds.host
     test_port = ds.port if ds.port is not None else db_ds.port
     test_username = ds.username if ds.username is not None else db_ds.username
-    # For password, if not provided in update (None or empty string), use existing password for testing
     test_password = ds.password if ds.password else db_ds.password
     test_database = ds.database if ds.database is not None else db_ds.database
 
-    # Try to test connection before saving
     try:
         adapter = DataSourceFactory.create(
             test_type,
@@ -108,26 +101,15 @@ def update_data_source(ds_id: int, ds: DataSourceUpdate, db: Session = Depends(g
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to connect: {str(e)}")
 
-    # Update fields
-    if ds.name is not None: db_ds.name = ds.name
-    if ds.type is not None: db_ds.type = ds.type
-    if ds.host is not None: db_ds.host = ds.host
-    if ds.port is not None: db_ds.port = ds.port
-    if ds.username is not None: db_ds.username = ds.username
-    # Only update password if a non-empty string is provided
-    if ds.password: db_ds.password = ds.password
-    if ds.database is not None: db_ds.database = ds.database
+    update_data = {k: v for k, v in ds.dict(exclude_unset=True).items()}
+    if 'password' in update_data and not update_data['password']:
+        del update_data['password']
 
-    db.commit()
-    db.refresh(db_ds)
-    return db_ds
+    updated_ds = repo.update(ds_id, update_data)
+    return updated_ds
 
 @router.delete("/{ds_id}")
-def delete_data_source(ds_id: int, db: Session = Depends(get_db)):
-    db_ds = db.query(DataSource).filter(DataSource.id == ds_id).first()
-    if not db_ds:
+def delete_data_source(ds_id: int, repo: DataSourceRepositoryPort = Depends(get_ds_repository)):
+    if not repo.delete(ds_id):
         raise HTTPException(status_code=404, detail="Data source not found")
-    
-    db.delete(db_ds)
-    db.commit()
     return {"detail": "Data source deleted"}

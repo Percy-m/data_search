@@ -32,3 +32,31 @@ class DataSourcePort(ABC):
     def get_columns(self, table_name: str) -> List[Dict[str, Any]]:
         """获取指定表的所有字段信息 (名称, 类型等)"""
         pass
+
+class MetadataRepository(ABC):
+    @abstractmethod
+    def get_by_id(self, id: int) -> Any: pass
+    
+    @abstractmethod
+    def get_all(self) -> List[Any]: pass
+    
+    @abstractmethod
+    def create(self, data: Dict[str, Any]) -> Any: pass
+    
+    @abstractmethod
+    def update(self, id: int, data: Dict[str, Any]) -> Any: pass
+    
+    @abstractmethod
+    def delete(self, id: int) -> bool: pass
+
+class DataSourceRepositoryPort(MetadataRepository):
+    @abstractmethod
+    def get_by_name(self, name: str) -> Any: pass
+
+class SavedQueryRepositoryPort(MetadataRepository):
+    @abstractmethod
+    def get_by_name(self, name: str) -> Any: pass
+
+class DashboardRepositoryPort(MetadataRepository):
+    @abstractmethod
+    def get_by_name(self, name: str) -> Any: pass

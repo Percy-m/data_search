@@ -76,15 +76,17 @@ package "Backend (FastAPI - Hexagonal Architecture)" {
     [AST Parser & Smart Projection] as ASTSvc
   }
   
-  package "Core Model Layer" {
+  package "Core Layer (Domain Logic)" {
     [DataSourcePort (Interface)] as DSPort
+    [MetadataRepositoryPort (Interface)] as RepoPort
     [Pydantic Models] as DomainModels
-    [SQLAlchemy MetaModels] as MetaModels
   }
   
   package "Infrastructure Layer (Adapters Out)" {
+    [Repositories] as Repositories
+    [SQLAlchemy ORM Models] as ORMModels
     [ClickHouseAdapter] as CHAdapter
-    [PostgreSQL Repo] as MetaRepo
+    [DuckDBAdapter] as DuckAdapter
   }
 }
 
@@ -93,12 +95,15 @@ Dashboard ..> DSApi : CRUD
 Dashboard ..> DashApi : CRUD Layouts
 
 Routes --> QuerySvc : 解析请求
-DSApi --> MetaRepo : 读取连接信息
-DashApi --> MetaRepo : 保存画板配置
+DSApi --> Repositories : 调用仓储 CRUD
+DashApi --> Repositories : 保存画板配置
 
+Repositories -up-|> RepoPort : 实现接口
+Repositories --> ORMModels : 数据库实体持久化
 QuerySvc --> DSPort : 依赖抽象接口执行
 QuerySvc --> ASTSvc : sqlglot 语法解析
 CHAdapter -up-|> DSPort : 实现接口
+DuckAdapter -up-|> DSPort : 实现接口
 
 ASTSvc --> CHAdapter : AST 改写 (LIMIT 1 BY, DISTINCT)
 
@@ -177,14 +182,18 @@ folder "Project Root" {
       [saved_queries.py]
     }
     folder "core/" {
-      [database.py (SQLAlchemy Session)]
       [factory.py (DataSource Factory)]
-      [meta_models.py (ORM Entities)]
       [models.py (Pydantic DTOs)]
       [ports.py (Interfaces)]
     }
+    folder "infrastructure/" {
+      [database.py (SQLAlchemy Session)]
+      [orm_models.py (ORM Entities)]
+      [repositories.py (SQLAlchemy Repositories)]
+    }
     folder "adapters/" {
       [clickhouse.py (ch-driver & sqlglot AST logic)]
+      [duckdb.py (duckdb-driver & sqlglot AST logic)]
     }
     folder "services/" {
       [query.py]

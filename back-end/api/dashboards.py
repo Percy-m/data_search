@@ -1,13 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from core.database import get_db
-from core.meta_models import Dashboard, DashboardWidget, SavedQuery
+from infrastructure.database import get_db
+from infrastructure.repositories import SQLAlchemyDashboardRepository
+from core.ports import DashboardRepositoryPort
 
 router = APIRouter()
+
+def get_dash_repository(db: Session = Depends(get_db)) -> DashboardRepositoryPort:
+    return SQLAlchemyDashboardRepository(db)
 
 # --- Schemas ---
 class WidgetCreate(BaseModel):
@@ -25,6 +29,7 @@ class WidgetResponse(WidgetCreate):
     query_sql: Optional[str] = None
     query_thresholds: Optional[List[Dict[str, Any]]] = None
     query_macros: Optional[List[Dict[str, Any]]] = None
+    chart_type: str = "table"
     data_source_id: Optional[int] = None
 
     class Config:
@@ -50,84 +55,7 @@ class DashboardResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Routes ---
-
-@router.post("/", response_model=DashboardResponse)
-def create_dashboard(dashboard: DashboardCreate, db: Session = Depends(get_db)):
-    db_dash = db.query(Dashboard).filter(Dashboard.name == dashboard.name).first()
-    if db_dash:
-        raise HTTPException(status_code=400, detail="Dashboard name already exists")
-    
-    new_dash = Dashboard(name=dashboard.name, description=dashboard.description)
-    db.add(new_dash)
-    db.commit()
-    db.refresh(new_dash)
-    
-    # Add widgets
-    for w in dashboard.widgets:
-        db_widget = DashboardWidget(
-            dashboard_id=new_dash.id,
-            query_id=w.query_id,
-            x=w.x, y=w.y, w=w.w, h=w.h, i=w.i
-        )
-        db.add(db_widget)
-    db.commit()
-    db.refresh(new_dash)
-    return _format_dashboard_response(new_dash)
-
-@router.get("/", response_model=List[DashboardResponse])
-def get_dashboards(db: Session = Depends(get_db)):
-    dashboards = db.query(Dashboard).order_by(Dashboard.created_at.desc()).all()
-    return [_format_dashboard_response(d) for d in dashboards]
-
-@router.get("/{dash_id}", response_model=DashboardResponse)
-def get_dashboard(dash_id: int, db: Session = Depends(get_db)):
-    dash = db.query(Dashboard).filter(Dashboard.id == dash_id).first()
-    if not dash:
-        raise HTTPException(status_code=404, detail="Dashboard not found")
-    return _format_dashboard_response(dash)
-
-@router.put("/{dash_id}", response_model=DashboardResponse)
-def update_dashboard(dash_id: int, dashboard: DashboardUpdate, db: Session = Depends(get_db)):
-    db_dash = db.query(Dashboard).filter(Dashboard.id == dash_id).first()
-    if not db_dash:
-        raise HTTPException(status_code=404, detail="Dashboard not found")
-    
-    if dashboard.name is not None:
-        db_dash.name = dashboard.name
-    if dashboard.description is not None:
-        db_dash.description = dashboard.description
-        
-    # Full replace of widgets for simplicity if provided
-    if dashboard.widgets is not None:
-        # Delete existing
-        db.query(DashboardWidget).filter(DashboardWidget.dashboard_id == dash_id).delete()
-        # Insert new
-        for w in dashboard.widgets:
-            db_widget = DashboardWidget(
-                dashboard_id=dash_id,
-                query_id=w.query_id,
-                x=w.x, y=w.y, w=w.w, h=w.h, i=w.i
-            )
-            db.add(db_widget)
-            
-    db.commit()
-    db.refresh(db_dash)
-    return _format_dashboard_response(db_dash)
-
-@router.delete("/{dash_id}")
-def delete_dashboard(dash_id: int, db: Session = Depends(get_db)):
-    db_dash = db.query(Dashboard).filter(Dashboard.id == dash_id).first()
-    if not db_dash:
-        raise HTTPException(status_code=404, detail="Dashboard not found")
-    
-    db.delete(db_dash)
-    db.commit()
-    return {"detail": "Dashboard deleted successfully"}
-
-
-def _format_dashboard_response(dash: Dashboard) -> dict:
-    # Helper to inject query details into the widget response
+def _format_dashboard_response(dash: Any) -> dict:
     resp = {
         "id": dash.id,
         "name": dash.name,
@@ -149,3 +77,44 @@ def _format_dashboard_response(dash: Dashboard) -> dict:
             "data_source_id": q.data_source_id if q else None
         })
     return resp
+
+# --- Routes ---
+
+@router.post("/", response_model=DashboardResponse)
+def create_dashboard(dashboard: DashboardCreate, repo: DashboardRepositoryPort = Depends(get_dash_repository)):
+    if repo.get_by_name(dashboard.name):
+        raise HTTPException(status_code=400, detail="Dashboard name already exists")
+    
+    new_dash = repo.create(dashboard.dict())
+    return _format_dashboard_response(new_dash)
+
+@router.get("/", response_model=List[DashboardResponse])
+def get_dashboards(repo: DashboardRepositoryPort = Depends(get_dash_repository)):
+    dashboards = repo.get_all()
+    return [_format_dashboard_response(d) for d in dashboards]
+
+@router.get("/{dash_id}", response_model=DashboardResponse)
+def get_dashboard(dash_id: int, repo: DashboardRepositoryPort = Depends(get_dash_repository)):
+    dash = repo.get_by_id(dash_id)
+    if not dash:
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+    return _format_dashboard_response(dash)
+
+@router.put("/{dash_id}", response_model=DashboardResponse)
+def update_dashboard(dash_id: int, dashboard: DashboardUpdate, repo: DashboardRepositoryPort = Depends(get_dash_repository)):
+    existing = repo.get_by_id(dash_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+    
+    if dashboard.name is not None and dashboard.name != existing.name:
+        if repo.get_by_name(dashboard.name):
+            raise HTTPException(status_code=400, detail="Dashboard name already exists")
+            
+    updated = repo.update(dash_id, dashboard.dict(exclude_unset=True))
+    return _format_dashboard_response(updated)
+
+@router.delete("/{dash_id}")
+def delete_dashboard(dash_id: int, repo: DashboardRepositoryPort = Depends(get_dash_repository)):
+    if not repo.delete(dash_id):
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+    return {"detail": "Dashboard deleted successfully"}

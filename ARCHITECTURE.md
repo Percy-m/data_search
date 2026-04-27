@@ -15,9 +15,12 @@
 *   **`core/` (核心层)**：系统的核心领域模型和接口定义。不依赖任何外部框架或具体的数据源实现。
     *   `meta_models.py`: SQLAlchemy ORM 模型，负责对接 PostgreSQL 存储引擎系统的全部元数据配置（如数据源连接池、看板画布、图表组件）。
     *   `models.py`: 定义基于 Pydantic 的抽象查询验证模型（`QueryRequest`, `DrillDownRequest`, `DrillThroughRequest` 等）。
-    *   `ports.py` & `factory.py`: 数据源抽象标准接口（提供获取表结构、执行查询的规范），以及管理动态实例化的 `DataSourceFactory`。
+    *   `ports.py` & `factory.py`: 数据源与仓储抽象标准接口（提供获取表结构、执行查询的规范，以及元数据操作接口），以及管理动态实例化的 `DataSourceFactory`。
+*   **`infrastructure/` (基础设施层)**：数据库持久化具体实现。
+    *   `orm_models.py`: SQLAlchemy ORM 模型，负责对接 PostgreSQL 存储引擎系统的全部元数据配置（如数据源连接池、看板画布、图表组件）。
     *   `database.py`: PostgreSQL Session 连接池配置。
-*   **`adapters/` (适配器层)**：具体基础设施的操作层实现。
+    *   `repositories.py`: 仓储模式 (Repository Pattern) 具体实现类。
+*   **`adapters/` (适配器层)**：具体外部组件的操作层实现。
     *   `clickhouse.py`: ClickHouse 数据源适配器，实现了 `DataSourcePort` 接口，负责将抽象模型翻译为 SQL，直接与原生引擎通信。内部深度集成了 `sqlglot` 用于 AST 语法树智能解析和安全投影改写。
 *   **`services/` (服务层)**：业务逻辑层。
     *   `query.py`: `QueryService` 封装了标准的多维查询和通用下钻的算法实现。

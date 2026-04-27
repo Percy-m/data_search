@@ -4,10 +4,14 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from core.database import get_db
-from core.meta_models import SavedQuery
+from infrastructure.database import get_db
+from infrastructure.repositories import SQLAlchemySavedQueryRepository
+from core.ports import SavedQueryRepositoryPort
 
 router = APIRouter()
+
+def get_query_repository(db: Session = Depends(get_db)) -> SavedQueryRepositoryPort:
+    return SQLAlchemySavedQueryRepository(db)
 
 # Schema definitions for validation and serialization
 class SavedQueryCreate(BaseModel):
@@ -40,58 +44,31 @@ class SavedQueryResponse(BaseModel):
         from_attributes = True
 
 @router.post("/", response_model=SavedQueryResponse)
-def create_saved_query(query: SavedQueryCreate, db: Session = Depends(get_db)):
-    # 检查是否同名
-    db_query = db.query(SavedQuery).filter(SavedQuery.name == query.name).first()
-    if db_query:
+def create_saved_query(query: SavedQueryCreate, repo: SavedQueryRepositoryPort = Depends(get_query_repository)):
+    if repo.get_by_name(query.name):
         raise HTTPException(status_code=400, detail="A saved query with this name already exists")
     
-    new_query = SavedQuery(
-        name=query.name, 
-        raw_sql=query.raw_sql, 
-        data_source_id=query.data_source_id,
-        chart_type=query.chart_type,
-        macros=query.macros,
-        thresholds=query.thresholds
-    )
-    db.add(new_query)
-    db.commit()
-    db.refresh(new_query)
-    return new_query
+    return repo.create(query.dict())
 
 @router.get("/", response_model=List[SavedQueryResponse])
-def get_saved_queries(db: Session = Depends(get_db)):
-    return db.query(SavedQuery).order_by(SavedQuery.created_at.desc()).all()
+def get_saved_queries(repo: SavedQueryRepositoryPort = Depends(get_query_repository)):
+    return repo.get_all()
 
 @router.put("/{query_id}", response_model=SavedQueryResponse)
-def update_saved_query(query_id: int, query: SavedQueryUpdate, db: Session = Depends(get_db)):
-    db_query = db.query(SavedQuery).filter(SavedQuery.id == query_id).first()
-    if not db_query:
+def update_saved_query(query_id: int, query: SavedQueryUpdate, repo: SavedQueryRepositoryPort = Depends(get_query_repository)):
+    existing = repo.get_by_id(query_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Query not found")
-    
-    if query.name is not None:
-        db_query.name = query.name
-    if query.raw_sql is not None:
-        db_query.raw_sql = query.raw_sql
-    if query.data_source_id is not None:
-        db_query.data_source_id = query.data_source_id
-    if query.chart_type is not None:
-        db_query.chart_type = query.chart_type
-    if query.macros is not None:
-        db_query.macros = query.macros
-    if query.thresholds is not None:
-        db_query.thresholds = query.thresholds
         
-    db.commit()
-    db.refresh(db_query)
-    return db_query
+    if query.name is not None and query.name != existing.name:
+        if repo.get_by_name(query.name):
+            raise HTTPException(status_code=400, detail="A saved query with this name already exists")
+            
+    updated = repo.update(query_id, query.dict(exclude_unset=True))
+    return updated
 
 @router.delete("/{query_id}")
-def delete_saved_query(query_id: int, db: Session = Depends(get_db)):
-    db_query = db.query(SavedQuery).filter(SavedQuery.id == query_id).first()
-    if not db_query:
+def delete_saved_query(query_id: int, repo: SavedQueryRepositoryPort = Depends(get_query_repository)):
+    if not repo.delete(query_id):
         raise HTTPException(status_code=404, detail="Query not found")
-    
-    db.delete(db_query)
-    db.commit()
     return {"detail": "Query deleted successfully"}
