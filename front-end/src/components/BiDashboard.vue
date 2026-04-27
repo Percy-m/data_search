@@ -287,7 +287,6 @@
             <el-button type="primary" icon="Plus" @click="showDsDialog">新增数据源</el-button>
           </div>
           <el-table :data="dataSources" border stripe>
-            <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="name" label="连接名称" />
             <el-table-column prop="type" label="类型" width="120">
               <template #default="scope">
@@ -296,11 +295,12 @@
             </el-table-column>
             <el-table-column prop="host" label="主机地址" />
             <el-table-column prop="database" label="数据库" />
-            <el-table-column label="操作" width="100" align="center">
+            <el-table-column label="操作" width="120" align="center">
               <template #default="scope">
+                <el-button type="primary" link icon="Edit" @click="editDataSource(scope.row)" title="编辑"></el-button>
                 <el-popconfirm title="确定要删除该数据源吗？" @confirm="deleteDataSource(scope.row.id)" confirm-button-text="删除" confirm-button-type="danger" cancel-button-text="取消">
                   <template #reference>
-                    <el-button type="danger" link icon="Delete"></el-button>
+                    <el-button type="danger" link icon="Delete" title="删除"></el-button>
                   </template>
                 </el-popconfirm>
               </template>
@@ -341,14 +341,16 @@
     </el-dialog>
 
     <!-- Data Source Dialog -->
-    <el-dialog v-model="dsDialogVisible" title="接入新数据源" width="30%">
+    <el-dialog v-model="dsDialogVisible" :title="currentEditDsId ? '编辑数据源' : '接入新数据源'" width="30%">
       <el-form :model="dsForm" label-width="100px">
         <el-form-item label="连接名称"><el-input v-model="dsForm.name" /></el-form-item>
         <el-form-item label="类型"><el-select v-model="dsForm.type" style="width: 100%"><el-option label="ClickHouse" value="clickhouse" /></el-select></el-form-item>
         <el-form-item label="主机"><el-input v-model="dsForm.host" /></el-form-item>
         <el-form-item label="端口"><el-input-number v-model="dsForm.port" :controls="false" style="width: 100%" /></el-form-item>
         <el-form-item label="用户名"><el-input v-model="dsForm.username" /></el-form-item>
-        <el-form-item label="密码"><el-input v-model="dsForm.password" type="password" show-password /></el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="dsForm.password" type="password" show-password :placeholder="currentEditDsId ? '不修改请留空' : '请输入密码'" />
+        </el-form-item>
         <el-form-item label="数据库"><el-input v-model="dsForm.database" /></el-form-item>
       </el-form>
       <template #footer>
@@ -456,6 +458,7 @@ const DASH_API_BASE = 'http://127.0.0.1:8000/api/v1/dashboards'
 const dataSources = ref([])
 const dsDialogVisible = ref(false)
 const savingDs = ref(false)
+const currentEditDsId = ref(null)
 const dsForm = ref({ name: '', type: 'clickhouse', host: 'localhost', port: 8123, username: 'default', password: '', database: 'default' })
 
 const activeTab = ref('dashboard')
@@ -673,11 +676,33 @@ const fetchDataSources = async () => {
     }
   } catch (error) {}
 }
-const showDsDialog = () => { dsDialogVisible.value = true }
+const showDsDialog = () => { 
+  currentEditDsId.value = null
+  dsForm.value = { name: '', type: 'clickhouse', host: 'localhost', port: 8123, username: 'default', password: '', database: 'default' }
+  dsDialogVisible.value = true 
+}
+const editDataSource = (row) => {
+  currentEditDsId.value = row.id
+  dsForm.value = { 
+    name: row.name, type: row.type, host: row.host, 
+    port: row.port, username: row.username || '', 
+    password: '', database: row.database || '' 
+  }
+  dsDialogVisible.value = true
+}
 const saveDataSource = async () => {
   savingDs.value = true
-  try { await axios.post(DS_API_BASE + '/', dsForm.value); ElMessage.success('成功'); dsDialogVisible.value = false; fetchDataSources() } 
-  catch (e) { ElMessage.error('失败') } finally { savingDs.value = false }
+  try { 
+    if (currentEditDsId.value) {
+      await axios.put(`${DS_API_BASE}/${currentEditDsId.value}`, dsForm.value)
+    } else {
+      await axios.post(DS_API_BASE + '/', dsForm.value)
+    }
+    ElMessage.success('成功')
+    dsDialogVisible.value = false
+    fetchDataSources() 
+  } 
+  catch (e) { ElMessage.error(e.response?.data?.detail || '失败') } finally { savingDs.value = false }
 }
 const deleteDataSource = (id) => {
   ElMessageBox.confirm('确定?', '提示', { type: 'warning' }).then(async () => {
