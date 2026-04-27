@@ -2,7 +2,7 @@
 
 本文档记录了平台用于存储自身配置的元数据表结构（默认运行于后端的 PostgreSQL 中）。
 
-**注意：** 任何对于 `back-end/core/meta_models.py` 中模型结构的修改，都**必须**同步更新此文档。
+**注意：** 任何对于 `back-end/infrastructure/orm_models.py` 中模型结构的修改，都**必须**同步更新此文档。
 
 ---
 
@@ -30,7 +30,7 @@
 | :--- | :--- | :--- | :--- |
 | `id` | Integer | PK, Auto Increment | 唯一主键 |
 | `name` | String(255) | Not Null, Unique | 组件/查询的业务名称 |
-| `data_source_id` | Integer | FK (`data_sources.id`) | 该查询关联的数据源 ID |
+| `data_source_id` | Integer | Nullable, Index | 该查询关联的数据源 ID |
 | `raw_sql` | Text | Not Null | 固化的原生 SQL 语句 |
 | `macros` | JSON | Default `[]` | 查询内部定义的宏变量 (如 `{{version}}`) 的默认配置 |
 | `thresholds` | JSON | Default `[]` | 指标条件高亮染色规则 |
@@ -57,8 +57,8 @@
 | 字段名 | 数据类型 | 属性 | 描述 |
 | :--- | :--- | :--- | :--- |
 | `id` | Integer | PK, Auto Increment | 唯一主键 |
-| `dashboard_id` | Integer | FK (`dashboards.id`) | 关联所属的数据看板 |
-| `query_id` | Integer | FK (`saved_queries.id`) | 关联被引入的查询组件 |
+| `dashboard_id` | Integer | Not Null, Index | 关联所属的数据看板 |
+| `query_id` | Integer | Not Null, Index | 关联被引入的查询组件 |
 | `x` | Integer | Default `0` | 画布 X 轴坐标 (列位置) |
 | `y` | Integer | Default `0` | 画布 Y 轴坐标 (行位置) |
 | `w` | Integer | Default `12` | 组件宽度 (占据的网格列数) |
