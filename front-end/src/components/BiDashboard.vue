@@ -90,8 +90,10 @@
                   :i="item.i"
                   class="widget-card"
                   :class="{'widget-edit-mode': isDashboardEditMode}"
-                  @dragEvent="(eventName) => handleWidgetInteract(eventName, item.i)"
-                  @resizeEvent="(eventName) => handleWidgetInteract(eventName, item.i)"
+                  @move="handleInteractStart(item.i)"
+                  @resize="handleInteractStart(item.i)"
+                  @moved="handleInteractEnd(item.i)"
+                  @resized="handleInteractEnd(item.i)"
                 >
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
                     <div class="widget-header">
@@ -635,12 +637,19 @@ const handleChartClick = (params, widget) => {
   handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id, getWidgetMacrosDict(widget))
 }
 
-const handleWidgetInteract = (eventName, i) => {
-  // eventName is passed as string by vue3-grid-layout: 'dragstart', 'drag', 'dragend', 'resizestart', 'resize', 'resizeend'
-  if (eventName === 'dragstart' || eventName === 'resizestart') {
-    interactingWidgets.value.add(i)
-  } else if (eventName === 'dragend' || eventName === 'resizeend') {
-    interactingWidgets.value.delete(i)
+const handleInteractStart = (i) => {
+  if (!interactingWidgets.value.has(i)) {
+    const newSet = new Set(interactingWidgets.value)
+    newSet.add(i)
+    interactingWidgets.value = newSet
+  }
+}
+
+const handleInteractEnd = (i) => {
+  if (interactingWidgets.value.has(i)) {
+    const newSet = new Set(interactingWidgets.value)
+    newSet.delete(i)
+    interactingWidgets.value = newSet
   }
 }
 
