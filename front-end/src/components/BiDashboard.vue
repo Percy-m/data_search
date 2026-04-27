@@ -105,43 +105,46 @@
                     </div>
                     
                     <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px;" v-loading="widgetLoading[item.i]">
-                      <!-- Table View -->
-                      <el-table 
-                        v-if="widgetData[item.i] && (!item.chart_type || item.chart_type === 'table')"
-                        :data="widgetData[item.i].data" 
-                        border 
-                        size="small"
-                        style="width: 100%; height: 100%"
-                        :cell-style="(ctx) => getWidgetCellStyle(ctx, item.query_thresholds)"
-                        @cell-click="(row, col, cell, evt) => handleCellClick(row, col, item.query_sql, widgetData[item.i].metrics, item.data_source_id, getWidgetMacrosDict(item))"
-                      >
-                        <el-table-column 
-                          v-for="c in widgetData[item.i].columns" 
-                          :key="c" 
-                          :prop="c" 
-                          :label="c"
-                          show-overflow-tooltip
+                      <!-- v-memo wraps the heavy DOM content to prevent expensive re-renders during dragging -->
+                      <div v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
+                        <!-- Table View -->
+                        <el-table 
+                          v-if="widgetData[item.i] && (!item.chart_type || item.chart_type === 'table')"
+                          :data="widgetData[item.i].data" 
+                          border 
+                          size="small"
+                          style="width: 100%; height: 100%"
+                          :cell-style="(ctx) => getWidgetCellStyle(ctx, item.query_thresholds)"
+                          @cell-click="(row, col, cell, evt) => handleCellClick(row, col, item.query_sql, widgetData[item.i].metrics, item.data_source_id, getWidgetMacrosDict(item))"
                         >
-                          <template #default="scope">
-                            <span 
-                              v-if="widgetData[item.i].metrics.has(c)" 
-                              class="clickable-metric"
-                            >
-                              {{ scope.row[c] }}
-                            </span>
-                            <span v-else>{{ scope.row[c] }}</span>
-                          </template>
-                        </el-table-column>
-                      </el-table>
+                          <el-table-column 
+                            v-for="c in widgetData[item.i].columns" 
+                            :key="c" 
+                            :prop="c" 
+                            :label="c"
+                            show-overflow-tooltip
+                          >
+                            <template #default="scope">
+                              <span 
+                                v-if="widgetData[item.i].metrics.has(c)" 
+                                class="clickable-metric"
+                              >
+                                {{ scope.row[c] }}
+                              </span>
+                              <span v-else>{{ scope.row[c] }}</span>
+                            </template>
+                          </el-table-column>
+                        </el-table>
 
-                      <!-- ECharts View (Bar/Line/Pie) -->
-                      <v-chart 
-                        v-else-if="widgetData[item.i] && item.chart_type !== 'table'" 
-                        :option="getChartOption(item)" 
-                        autoresize 
-                        style="width: 100%; height: 100%;"
-                        @click="(params) => handleChartClick(params, item)"
-                      />
+                        <!-- ECharts View (Bar/Line/Pie) -->
+                        <v-chart 
+                          v-else-if="widgetData[item.i] && item.chart_type !== 'table'" 
+                          :option="getChartOption(item)" 
+                          autoresize 
+                          style="width: 100%; height: 100%;"
+                          @click="(params) => handleChartClick(params, item)"
+                        />
+                      </div>
                     </div>
                   </el-card>
                 </grid-item>
