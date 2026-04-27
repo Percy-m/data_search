@@ -9,7 +9,9 @@ import os
 
 # 注册数据源适配器
 from adapters.clickhouse import ClickHouseAdapter
+from adapters.duckdb import DuckDBAdapter
 DataSourceFactory.register("clickhouse", ClickHouseAdapter)
+DataSourceFactory.register("duckdb", DuckDBAdapter)
 
 router = APIRouter()
 
@@ -30,6 +32,7 @@ def get_query_service(x_data_source_id: int = Header(None), db: Session = Depend
                 password=ds_record.password,
                 database=ds_record.database
             )
+            ds_id_str = str(x_data_source_id)
         else:
             # 兼容旧逻辑/默认本地开发配置
             ds_type = os.getenv("DATA_SOURCE_TYPE", "clickhouse")
@@ -44,8 +47,9 @@ def get_query_service(x_data_source_id: int = Header(None), db: Session = Depend
                 )
             else:
                 raise ValueError(f"Unsupported default data source type: {ds_type}")
+            ds_id_str = "default"
                 
-        return QueryService(data_source=adapter)
+        return QueryService(data_source=adapter, data_source_id=ds_id_str)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"数据源初始化失败: {str(e)}")
 

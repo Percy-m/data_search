@@ -344,14 +344,21 @@
     <el-dialog v-model="dsDialogVisible" :title="currentEditDsId ? '编辑数据源' : '接入新数据源'" width="30%">
       <el-form :model="dsForm" label-width="100px">
         <el-form-item label="连接名称"><el-input v-model="dsForm.name" /></el-form-item>
-        <el-form-item label="类型"><el-select v-model="dsForm.type" style="width: 100%"><el-option label="ClickHouse" value="clickhouse" /></el-select></el-form-item>
-        <el-form-item label="主机"><el-input v-model="dsForm.host" /></el-form-item>
-        <el-form-item label="端口"><el-input-number v-model="dsForm.port" :controls="false" style="width: 100%" /></el-form-item>
-        <el-form-item label="用户名"><el-input v-model="dsForm.username" /></el-form-item>
-        <el-form-item label="密码">
-          <el-input v-model="dsForm.password" type="password" show-password :placeholder="currentEditDsId ? '不修改请留空' : '请输入密码'" />
+        <el-form-item label="类型">
+          <el-select v-model="dsForm.type" style="width: 100%">
+            <el-option label="ClickHouse" value="clickhouse" />
+            <el-option label="DuckDB" value="duckdb" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="数据库"><el-input v-model="dsForm.database" /></el-form-item>
+        <el-form-item label="主机"><el-input v-model="dsForm.host" :disabled="dsForm.type === 'duckdb'" /></el-form-item>
+        <el-form-item label="端口"><el-input-number v-model="dsForm.port" :controls="false" style="width: 100%" :disabled="dsForm.type === 'duckdb'" /></el-form-item>
+        <el-form-item label="用户名"><el-input v-model="dsForm.username" :disabled="dsForm.type === 'duckdb'" /></el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="dsForm.password" type="password" show-password :placeholder="currentEditDsId ? '不修改请留空' : '请输入密码'" :disabled="dsForm.type === 'duckdb'" />
+        </el-form-item>
+        <el-form-item label="数据库(路径)">
+          <el-input v-model="dsForm.database" :placeholder="dsForm.type === 'duckdb' ? 'DuckDB 文件路径，留空为内存模式' : ''" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dsDialogVisible = false">取消</el-button>
