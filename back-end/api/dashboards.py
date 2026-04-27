@@ -28,6 +28,7 @@ class WidgetResponse(WidgetCreate):
     query_name: Optional[str] = None
     query_sql: Optional[str] = None
     query_thresholds: Optional[List[Dict[str, Any]]] = None
+    query_macros: Optional[List[Dict[str, Any]]] = None
     chart_type: str = "table"
     data_source_id: Optional[int] = None
 
@@ -70,6 +71,7 @@ def _format_dashboard_response(dash: Any) -> dict:
             "x": w.x, "y": w.y, "w": w.w, "h": w.h, "i": w.i,
             "query_name": q.name if q else "Unknown",
             "query_sql": q.raw_sql if q else "",
+            "query_macros": q.macros if q else [],
             "query_thresholds": q.thresholds if q else [],
             "chart_type": q.chart_type if q else "table",
             "data_source_id": q.data_source_id if q else None
