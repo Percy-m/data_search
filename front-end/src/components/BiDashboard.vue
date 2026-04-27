@@ -90,6 +90,8 @@
                   :i="item.i"
                   class="widget-card"
                   :class="{'widget-edit-mode': isDashboardEditMode}"
+                  @dragEvent="(eventName) => handleWidgetInteract(eventName, item.i)"
+                  @resizeEvent="(eventName) => handleWidgetInteract(eventName, item.i)"
                 >
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
                     <div class="widget-header">
@@ -105,8 +107,15 @@
                     </div>
                     
                     <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px;" v-loading="widgetLoading[item.i]">
-                      <!-- v-memo wraps the heavy DOM content to prevent expensive re-renders during dragging -->
-                      <div v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
+                      
+                      <!-- 动态骨架屏：仅在组件被物理拖拽/缩放的那一瞬间显示以保证极简DOM树 -->
+                      <div v-if="interactingWidgets.has(item.i)" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.8); border: 2px dashed #409EFF; border-radius: 4px;">
+                        <el-icon size="30" color="#409EFF"><Menu /></el-icon>
+                        <span style="margin-top: 10px; color: #409EFF; font-size: 14px; font-weight: bold;">正在调整位置/大小...</span>
+                      </div>
+
+                      <!-- 真实图表：只要静止下来，永远显示真实数据，以便实时配置阈值观察效果 -->
+                      <div v-else v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
                         <!-- Table View -->
                         <el-table 
                           v-if="widgetData[item.i] && (!item.chart_type || item.chart_type === 'table')"
@@ -485,6 +494,7 @@ const newDashboardName = ref('')
 const newDashboardDesc = ref('')
 const savingLayout = ref(false)
 const isDashboardEditMode = ref(false) // 看板编辑模式状态
+const interactingWidgets = ref(new Set()) // 正在被拖拽或缩放的组件的 i 集合
 const editingBoardName = ref(false)
 const tempBoardName = ref('')
 const originalLayoutStr = ref('') // 保存编辑前的快照
@@ -623,6 +633,15 @@ const handleChartClick = (params, widget) => {
   const rowData = wd.data[params.dataIndex]
   const metricCol = params.seriesName
   handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id, getWidgetMacrosDict(widget))
+}
+
+const handleWidgetInteract = (eventName, i) => {
+  // eventName is passed as string by vue3-grid-layout: 'dragstart', 'drag', 'dragend', 'resizestart', 'resize', 'resizeend'
+  if (eventName === 'dragstart' || eventName === 'resizestart') {
+    interactingWidgets.value.add(i)
+  } else if (eventName === 'dragend' || eventName === 'resizeend') {
+    interactingWidgets.value.delete(i)
+  }
 }
 
 // === Macros Logic ===
