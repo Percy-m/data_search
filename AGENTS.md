@@ -1,42 +1,48 @@
 # Agent Instructions
 
+## Core Rules (Must Follow)
+
+- **Language**: 所有与用户的对话和回答**必须使用中文**。
+- **Version Control**: 每次任务执行完毕或完成一个逻辑闭环后，必须进行 `git commit`。
+- **Documentation Sync**: 
+  - 修改 `back-end/core/meta_models.py` (PostgreSQL 表结构) 后，必须同步更新 `metadata_schema.md`。
+  - 涉及系统架构、模块职责或部署拓扑的改动，必须同步更新 `4_plus_1_views.md` 中的 PlantUML 代码。
+  - 任务完成后，检查并更新 `AGENTS.md` 或 `README.md` 以保持文档最新。
+- **Local DB Connection**: 本机 ClickHouse 客户端一律采用 `clickhouse client` 命令进行连接和查询。
+
 ## Environment & Execution
 
 - **Backend (Python 3.9 + FastAPI)**:
-  - Located in the `back-end/` directory.
-  - Run with: `cd back-end && .venv/bin/python main.py` or `cd back-end && .venv/bin/python -m uvicorn main:app --reload`.
-  - Use the local `back-end/.venv` directory for all Python package management and command execution.
-- **Metadata Database (PostgreSQL)**:
-  - Managed via Docker Compose in the root directory (`docker-compose up -d`). 
-  - Essential for storing data sources, saved queries, and dashboard layouts.
+  - Directory: `back-end/`
+  - Run Server: `cd back-end && .venv/bin/python main.py` or `cd back-end && .venv/bin/python -m uvicorn main:app --reload`.
+  - Package Management: Use the local `back-end/.venv` environment (e.g., `back-end/.venv/bin/pip`).
 - **Frontend (Vue 3 + Vite)**:
-  - Located in the `front-end/` directory.
-  - Run with: `cd front-end && npm run dev`.
-  - Core stack includes Element Plus, ECharts (`vue-echarts`), `vue3-grid-layout` for dashboards, and `exceljs` for style-aware exporting.
-- **IDE**: PyCharm project. Ignore the `.idea/` directory unless specifically asked.
+  - Directory: `front-end/`
+  - Run Dev Server: `cd front-end && npm run dev`.
+  - Core Stack: Element Plus, ECharts (`vue-echarts`), `vue3-grid-layout`, `exceljs`.
+- **Metadata Database (PostgreSQL)**:
+  - Managed via Docker Compose (`docker-compose up -d` in root). Essential for data sources, saved queries, and dashboards.
+- **IDE**: PyCharm project. Ignore the `.idea/` directory.
 
 ## Architecture & Conventions (Backend)
 
-The system strictly follows a **Ports and Adapters (Hexagonal) Architecture** to remain database-agnostic.
+Follows **Ports and Adapters (Hexagonal) Architecture** to remain database-agnostic. Code should ensure high availability, scalability, and domain abstraction.
 
-- `back-end/core/`: 
-  - Pure domain models (`models.py`) and interface definitions (`ports.py`). 
-  - PostgreSQL ORM models (`meta_models.py`) mapping to configurations (DataSource, SavedQuery, Dashboard).
-- `back-end/adapters/`: Concrete implementations of `core/ports.py` (e.g., `ClickHouseAdapter`). All DB-specific SQL translation and connection logic lives here.
-- `back-end/services/`: Core business logic (`QueryService`). Operates purely on the `DataSourcePort` interface.
-- `back-end/api/`: FastAPI route definitions and dependency injection. It dynamically instantiates the correct `DataSourcePort` adapter via `x-data-source-id` header fetching config from PostgreSQL.
+- `back-end/core/`: Pure domain models (`models.py`), interface definitions (`ports.py`), and PostgreSQL ORM models (`meta_models.py`).
+- `back-end/adapters/`: Concrete DB implementations (e.g., `clickhouse.py`). All SQL translation lives here.
+- `back-end/services/`: Core business logic (`query.py`). Operates purely on `DataSourcePort`.
+- `back-end/api/`: FastAPI routes. Dynamically instantiates the correct adapter via `x-data-source-id` header fetching config from PostgreSQL.
 
 ## Query & Drill-down Design
 
-- **AST over SQL**: The query system relies heavily on parsing raw SQL into an Abstract Syntax Tree (AST) using `sqlglot`.
+- **AST over SQL**: Relies heavily on parsing raw SQL into an AST using `sqlglot`.
 - **Smart Projection (Drill-through / 明细穿透)**:
-  - When clicking on metrics in ECharts or Tables to see underlying raw data, the frontend sends the SQL and clicked metric.
-  - The backend safely extracts `FROM`, `JOIN`s, and `WHERE` using `sqlglot`.
-  - **COUNT(DISTINCT)** handling: Instead of just blowing up into a large base table (`SELECT *`), if a `COUNT(DISTINCT table.field)` is clicked, the backend modifies the projection to `SELECT table.*` and appends `LIMIT 1 BY table.field` to precisely return the deduped underlying entity rows without metric distortion.
+  - Safely extracts `FROM`, `JOIN`s, and `WHERE` using `sqlglot`.
+  - **COUNT(DISTINCT)** handling: Modifies projection to `SELECT table.*` and appends `LIMIT 1 BY table.field` to return deduped rows without metric distortion.
 - **Dynamic Table Mapping (Macro Variables)**: 
-  - Supports passing a `macros: Dict[str, str]` object from the frontend (e.g., `{"version": "3_1"}`).
-  - Backend uses `sqlglot` to traverse the AST, finds `Table` nodes containing placeholders like `{{version}}`, and safely injects the macro values directly into the AST structure (e.g., transforming `order_{{version}}` to `order_3_1`) before executing. This avoids fragile string replacements and prevents accidental manipulation of aliases or column names.
+  - Frontend passes `macros: Dict[str, str]`.
+  - Backend uses `sqlglot` to find `Table` nodes with placeholders (e.g., `{{version}}`) and injects macro values directly into the AST structure.
 
 ## Testing & Tooling
 
-- There are currently no established test suites, linters, or formatters configured in `pyproject.toml` or `package.json`. Do not proactively introduce arbitrary ones without explicit user direction.
+- There are currently no established test suites, linters, or formatters. Do not proactively introduce arbitrary ones without explicit user direction.
