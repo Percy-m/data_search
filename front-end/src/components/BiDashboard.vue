@@ -449,7 +449,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, markRaw, onMounted } from 'vue'
+import { ref, shallowRef, shallowReactive, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Menu, Check, Close, Filter, DataLine, Download } from '@element-plus/icons-vue'
@@ -487,7 +487,7 @@ const tempBoardName = ref('')
 const originalLayoutStr = ref('') // 保存编辑前的快照
 
 const addWidgetDialogVisible = ref(false)
-const widgetData = ref({}) 
+const widgetData = shallowReactive({}) 
 const widgetLoading = ref({})
 
 const currentDataSourceId = ref(null)
@@ -601,7 +601,7 @@ const getEditorChartOption = () => {
 }
 
 const getChartOption = (widget) => {
-  const wd = widgetData.value[widget.i]
+  const wd = widgetData[widget.i]
   if (!wd || !wd.columns) return {}
   return buildChartOption(widget.chart_type, wd.columns, wd.data)
 }
@@ -615,7 +615,7 @@ const handleEditorChartClick = (params) => {
 }
 
 const handleChartClick = (params, widget) => {
-  const wd = widgetData.value[widget.i]
+  const wd = widgetData[widget.i]
   const dimCol = wd.columns[0]
   const rowData = wd.data[params.dataIndex]
   const metricCol = params.seriesName
@@ -744,7 +744,7 @@ const runEditorQuery = async () => {
       macros: getEditorMacrosDict()
     }, { headers })
     editorColumns.value = res.data.columns
-    editorTableData.value = markRaw(res.data.data)
+    editorTableData.value = res.data.data
     editorMetricColumns.value = parseMetrics(editorSql.value, res.data.columns)
   } catch (e) { ElMessage.error('查询失败: ' + e.message) } finally { editorLoading.value = false }
 }
@@ -876,13 +876,13 @@ const fetchWidgetData = async (widget) => {
       sql: widget.query_sql,
       macros: getWidgetMacrosDict(widget)
     }, { headers })
-    widgetData.value[widget.i] = {
+    widgetData[widget.i] = {
       columns: res.data.columns,
-      data: markRaw(res.data.data),
+      data: res.data.data,
       metrics: parseMetrics(widget.query_sql, res.data.columns)
     }
   } catch (e) {
-    widgetData.value[widget.i] = { error: '加载失败' }
+    widgetData[widget.i] = { error: '加载失败' }
   } finally {
     widgetLoading.value[widget.i] = false
   }
@@ -962,7 +962,7 @@ const openWidgetThresholds = (widget) => {
   isEditorThresholdMode.value = false
   currentThresholdWidgetId.value = widget.query_id
   currentThresholds.value = Array.isArray(widget.query_thresholds) ? JSON.parse(JSON.stringify(widget.query_thresholds)) : []
-  currentThresholdWidgetCols.value = widgetData.value[widget.i]?.columns || []
+  currentThresholdWidgetCols.value = widgetData[widget.i]?.columns || []
   thresholdDialogVisible.value = true
 }
 const openEditorThresholds = () => {
@@ -1082,7 +1082,7 @@ const generateExcelWithStyle = async (columns, data, thresholds, filename) => {
 }
 
 const exportWidgetToExcel = (widget) => {
-  const wd = widgetData.value[widget.i]
+  const wd = widgetData[widget.i]
   if (!wd || !wd.columns || !wd.data) {
     ElMessage.warning('暂无数据')
     return
@@ -1141,7 +1141,7 @@ const loadDetailData = async (colOrPage = 1) => {
       clicked_metric: currentContext.value.metric, limit: detailPageSize.value, offset: (detailPage.value - 1) * detailPageSize.value,
       macros: currentContext.value.macros
     }, { headers })
-    detailTotal.value = res.data.total; detailColumns.value = res.data.columns; detailData.value = markRaw(res.data.data)
+    detailTotal.value = res.data.total; detailColumns.value = res.data.columns; detailData.value = res.data.data
   } catch (e) { ElMessage.error('明细加载失败') } finally { detailLoading.value = false }
 }
 
