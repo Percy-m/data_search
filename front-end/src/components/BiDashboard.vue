@@ -496,7 +496,7 @@ const tablesLoading = ref(false)
 const currentEditorQueryId = ref(null) // 记录当前正在编辑的已存查询的 ID
 const editorSql = ref('SELECT o.country, sum(o.revenue) as total_rev \nFROM bi_demo.orders o \nGROUP BY o.country')
 const editorLoading = ref(false)
-const editorTableData = ref([])
+const editorTableData = shallowRef([])
 const editorColumns = ref([])
 const editorMetricColumns = ref(new Set())
 const editorChartType = ref('table')
@@ -508,7 +508,7 @@ const savingQuery = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const exportingDetail = ref(false)
-const detailData = ref([])
+const detailData = shallowRef([])
 const detailColumns = ref([])
 const detailTotal = ref(0)
 const detailPage = ref(1)
@@ -744,7 +744,7 @@ const runEditorQuery = async () => {
       macros: getEditorMacrosDict()
     }, { headers })
     editorColumns.value = res.data.columns
-    editorTableData.value = res.data.data
+    editorTableData.value = markRaw(res.data.data)
     editorMetricColumns.value = parseMetrics(editorSql.value, res.data.columns)
   } catch (e) { ElMessage.error('查询失败: ' + e.message) } finally { editorLoading.value = false }
 }
@@ -878,7 +878,7 @@ const fetchWidgetData = async (widget) => {
     }, { headers })
     widgetData.value[widget.i] = {
       columns: res.data.columns,
-      data: res.data.data,
+      data: markRaw(res.data.data),
       metrics: parseMetrics(widget.query_sql, res.data.columns)
     }
   } catch (e) {
@@ -1141,7 +1141,7 @@ const loadDetailData = async (colOrPage = 1) => {
       clicked_metric: currentContext.value.metric, limit: detailPageSize.value, offset: (detailPage.value - 1) * detailPageSize.value,
       macros: currentContext.value.macros
     }, { headers })
-    detailTotal.value = res.data.total; detailColumns.value = res.data.columns; detailData.value = res.data.data
+    detailTotal.value = res.data.total; detailColumns.value = res.data.columns; detailData.value = markRaw(res.data.data)
   } catch (e) { ElMessage.error('明细加载失败') } finally { detailLoading.value = false }
 }
 
