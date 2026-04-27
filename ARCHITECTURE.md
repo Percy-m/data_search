@@ -21,7 +21,7 @@
     *   `database.py`: PostgreSQL Session 连接池配置。
     *   `repositories.py`: 仓储模式 (Repository Pattern) 具体实现类。
 *   **`adapters/` (适配器层)**：具体外部组件的操作层实现。
-    *   `clickhouse.py`: ClickHouse 数据源适配器，实现了 `DataSourcePort` 接口，负责将抽象模型翻译为 SQL，直接与原生引擎通信。内部深度集成了 `sqlglot` 用于 AST 语法树智能解析和安全投影改写。
+    *   `clickhouse.py` / `duckdb.py`: 数据源适配器，实现了 `DataSourcePort` 接口，负责将抽象模型翻译为 SQL，直接与原生引擎通信。内部深度集成了 `sqlglot` 用于 AST 语法树智能解析和安全投影改写。
 *   **`services/` (服务层)**：业务逻辑层。
     *   `query.py`: `QueryService` 封装了标准的多维查询和通用下钻的算法实现。
 *   **`api/` (接入层)**：HTTP 层 (Controllers)。
@@ -64,7 +64,7 @@
 前端作为承载可视化与数据分析的门户，基于 **Vue 3 (Composition API) + Vite** 构建，采用了成熟的高级组件生态来支持极客编辑与图表拖拽。
 
 ### 3.1 核心依赖栈
-*   **核心引擎**：Vue 3
+*   **核心引擎**：Vue 3 (为了解决大宽表与巨量图表数据下 Grid Layout 拖拽卡顿的性能瓶颈，核心组件全面使用了 `shallowReactive` 与 `shallowRef` 并配合 `markRaw` 阻断深层响应式代理。)
 *   **UI 骨架**：Element Plus
 *   **拖拽引擎**：`vue3-grid-layout`（驱动无限画布）
 *   **可视化图表**：Apache ECharts + `vue-echarts`
