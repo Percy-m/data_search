@@ -9,6 +9,9 @@
 > **🔧 数据库字典**：
 > - 业务测试用表结构 (ClickHouse)：[table.md](./table.md)
 > - 系统元数据表结构 (PostgreSQL)：[metadata_schema.md](./metadata_schema.md)
+> 
+> **🧪 测试规范**：
+> - 业务场景梳理与验收测试用例：[TEST_PLAN.md](./TEST_PLAN.md)
 
 ## 1. 架构与设计 (Backend)
 
