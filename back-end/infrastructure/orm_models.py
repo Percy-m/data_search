@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON
 from infrastructure.database import Base
 import datetime
 
@@ -24,7 +23,7 @@ class SavedQuery(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, unique=True, index=True)
-    data_source_id = Column(Integer, ForeignKey('data_sources.id'), nullable=True) # 关联数据源
+    data_source_id = Column(Integer, index=True, nullable=True) # 关联数据源，去掉 ForeignKey
     raw_sql = Column(Text, nullable=False)
     macros = Column(JSON, default=list)  # 查询参数(如 {{version}} 等)配置
     thresholds = Column(JSON, default=list)  # 高亮阈值配置
@@ -41,8 +40,6 @@ class Dashboard(Base):
     name = Column(String(255), nullable=False, unique=True)
     description = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    
-    widgets = relationship("DashboardWidget", back_populates="dashboard", cascade="all, delete-orphan")
 
 class DashboardWidget(Base):
     """
@@ -51,8 +48,8 @@ class DashboardWidget(Base):
     __tablename__ = "dashboard_widgets"
 
     id = Column(Integer, primary_key=True, index=True)
-    dashboard_id = Column(Integer, ForeignKey('dashboards.id'), nullable=False)
-    query_id = Column(Integer, ForeignKey('saved_queries.id'), nullable=False)
+    dashboard_id = Column(Integer, index=True, nullable=False) # 去掉 ForeignKey
+    query_id = Column(Integer, index=True, nullable=False) # 去掉 ForeignKey
     
     # 布局参数 (Vue Grid Layout)
     x = Column(Integer, default=0)
@@ -60,6 +57,3 @@ class DashboardWidget(Base):
     w = Column(Integer, default=12)
     h = Column(Integer, default=8)
     i = Column(String(50), nullable=False) # 唯一标识符，对于 vue-grid-layout 必需
-    
-    dashboard = relationship("Dashboard", back_populates="widgets")
-    query = relationship("SavedQuery")

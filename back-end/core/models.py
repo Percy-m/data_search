@@ -43,3 +43,21 @@ class DrillThroughResult(BaseModel):
     columns: List[str]
     data: List[Dict[str, Any]]
     total: int
+
+class DashboardWidgetDTO(BaseModel):
+    id: int
+    dashboard_id: int
+    query_id: int
+    x: int
+    y: int
+    w: int
+    h: int
+    i: str
+    query: Optional[Any] = None # Will hold SavedQuery object
+
+class DashboardAggregateDTO(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    created_at: Any
+    widgets: List[DashboardWidgetDTO] = []
