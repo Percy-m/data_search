@@ -112,9 +112,12 @@ class DuckDBAdapter(DataSourcePort):
                             table_alias = col_expr.args["table"].sql(dialect="duckdb")
                             select_projection = f"{table_alias}.*"
             
-            base_from = ast.args.get("from")
-            joins = ast.args.get("joins", [])
-            where_node = ast.args.get("where")
+            base_from = ast.find(exp.From)
+            if not base_from:
+                raise ValueError("Could not extract FROM clause from the provided SQL")
+                
+            joins = list(ast.find_all(exp.Join))
+            where_node = ast.find(exp.Where)
             
             drill_ast = exp.select(select_projection).from_(base_from.this if base_from else "")
             
