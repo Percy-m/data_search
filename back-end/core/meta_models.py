@@ -26,6 +26,7 @@ class SavedQuery(Base):
     name = Column(String(255), nullable=False, unique=True, index=True)
     data_source_id = Column(Integer, ForeignKey('data_sources.id'), nullable=True) # 关联数据源
     raw_sql = Column(Text, nullable=False)
+    macros = Column(JSON, default=list)  # 查询参数(如 {{version}} 等)配置
     thresholds = Column(JSON, default=list)  # 高亮阈值配置
     chart_type = Column(String(50), default="table") # 图表类型: table, bar, pie, line
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

@@ -15,6 +15,7 @@ class SavedQueryCreate(BaseModel):
     raw_sql: str
     data_source_id: Optional[int] = None
     chart_type: str = "table"
+    macros: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     thresholds: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
 
 class SavedQueryUpdate(BaseModel):
@@ -22,6 +23,7 @@ class SavedQueryUpdate(BaseModel):
     raw_sql: Optional[str] = None
     data_source_id: Optional[int] = None
     chart_type: Optional[str] = None
+    macros: Optional[List[Dict[str, Any]]] = None
     thresholds: Optional[List[Dict[str, Any]]] = None
 
 class SavedQueryResponse(BaseModel):
@@ -30,6 +32,7 @@ class SavedQueryResponse(BaseModel):
     raw_sql: str
     data_source_id: Optional[int]
     chart_type: str
+    macros: List[Dict[str, Any]]
     thresholds: List[Dict[str, Any]]
     created_at: datetime
 
@@ -48,6 +51,7 @@ def create_saved_query(query: SavedQueryCreate, db: Session = Depends(get_db)):
         raw_sql=query.raw_sql, 
         data_source_id=query.data_source_id,
         chart_type=query.chart_type,
+        macros=query.macros,
         thresholds=query.thresholds
     )
     db.add(new_query)
@@ -73,6 +77,8 @@ def update_saved_query(query_id: int, query: SavedQueryUpdate, db: Session = Dep
         db_query.data_source_id = query.data_source_id
     if query.chart_type is not None:
         db_query.chart_type = query.chart_type
+    if query.macros is not None:
+        db_query.macros = query.macros
     if query.thresholds is not None:
         db_query.thresholds = query.thresholds
         

@@ -32,6 +32,7 @@
 | `name` | String(255) | Not Null, Unique | 组件/查询的业务名称 |
 | `data_source_id` | Integer | FK (`data_sources.id`) | 该查询关联的数据源 ID |
 | `raw_sql` | Text | Not Null | 固化的原生 SQL 语句 |
+| `macros` | JSON | Default `[]` | 查询内部定义的宏变量 (如 `{{version}}`) 的默认配置 |
 | `thresholds` | JSON | Default `[]` | 指标条件高亮染色规则 |
 | `chart_type` | String(50) | Default `'table'` | 该查询关联的可视化类型 (`table`, `bar`, `pie`, `line`) |
 | `created_at` | DateTime | Default UTC Now | 记录创建时间 |

@@ -38,15 +38,13 @@
           <!-- 右侧：看板画布 -->
           <el-main class="dashboard-main" style="background-color: #f0f2f5;">
             
-            <div class="global-macros-bar" v-if="activeDashboard">
+            <div class="global-macros-bar" v-if="activeDashboard && globalDashboardMacros.length > 0">
               <span style="font-weight: bold; margin-right: 15px; font-size: 14px; color: #606266;">全局参数 (Macros)</span>
-              <div v-for="(macro, idx) in globalMacros" :key="idx" class="macro-item">
-                <el-input v-model="macro.key" placeholder="Key (如 version)" size="small" style="width: 120px;" />
+              <div v-for="(macro, idx) in globalDashboardMacros" :key="idx" class="macro-item">
+                <span style="margin-right: 5px; font-size: 14px; font-family: monospace;">{{ macro.key }}</span>
                 <span style="margin: 0 5px;">=</span>
                 <el-input v-model="macro.value" placeholder="Value (如 3_1)" size="small" style="width: 150px;" @change="refreshActiveDashboard" />
-                <el-button type="danger" link icon="Close" @click="removeMacro(idx)"></el-button>
               </div>
-              <el-button type="primary" link icon="Plus" size="small" @click="addMacro" style="margin-left: 10px;">添加参数</el-button>
             </div>
             
             <div v-if="activeDashboard" class="board-view">
@@ -115,7 +113,7 @@
                         size="small"
                         style="width: 100%; height: 100%"
                         :cell-style="(ctx) => getWidgetCellStyle(ctx, item.query_thresholds)"
-                        @cell-click="(row, col, cell, evt) => handleCellClick(row, col, item.query_sql, widgetData[item.i].metrics, item.data_source_id)"
+                        @cell-click="(row, col, cell, evt) => handleCellClick(row, col, item.query_sql, widgetData[item.i].metrics, item.data_source_id, getWidgetMacrosDict(item))"
                       >
                         <el-table-column 
                           v-for="c in widgetData[item.i].columns" 
@@ -197,14 +195,14 @@
 
           <el-main class="editor-container">
             <div class="global-macros-bar" style="border-bottom: 1px solid #ebeef5; border-radius: 0;">
-              <span style="font-weight: bold; margin-right: 15px; font-size: 14px; color: #606266;">测试宏参数 (Macros)</span>
-              <div v-for="(macro, idx) in globalMacros" :key="idx" class="macro-item">
+              <span style="font-weight: bold; margin-right: 15px; font-size: 14px; color: #606266;">当前查询变量 (Macros)</span>
+              <div v-for="(macro, idx) in editorMacros" :key="idx" class="macro-item">
                 <el-input v-model="macro.key" placeholder="Key (如 version)" size="small" style="width: 120px;" />
                 <span style="margin: 0 5px;">=</span>
                 <el-input v-model="macro.value" placeholder="Value (如 3_1)" size="small" style="width: 150px;" />
-                <el-button type="danger" link icon="Close" @click="removeMacro(idx)"></el-button>
+                <el-button type="danger" link icon="Close" @click="removeEditorMacro(idx)"></el-button>
               </div>
-              <el-button type="primary" link icon="Plus" size="small" @click="addMacro" style="margin-left: 10px;">添加参数</el-button>
+              <el-button type="primary" link icon="Plus" size="small" @click="addEditorMacro" style="margin-left: 10px;">添加参数</el-button>
             </div>
             
             <div class="query-box">
@@ -253,7 +251,7 @@
                 style="width: 100%; height: 100%" 
                 v-loading="editorLoading"
                 :cell-style="(ctx) => getWidgetCellStyle(ctx, editorThresholds)"
-                @cell-click="(row, col, cell, evt) => handleCellClick(row, col, editorSql, editorMetricColumns, currentDataSourceId)"
+                @cell-click="(row, col, cell, evt) => handleCellClick(row, col, editorSql, editorMetricColumns, currentDataSourceId, getEditorMacrosDict())"
               >
                 <el-table-column v-for="col in editorColumns" :key="col" :prop="col" :label="col">
                   <template #default="scope">
@@ -462,7 +460,8 @@ const dsForm = ref({ name: '', type: 'clickhouse', host: 'localhost', port: 8123
 
 const activeTab = ref('dashboard')
 const savedQueries = ref([])
-const globalMacros = ref([{ key: 'version', value: 's' }]) // 全局宏变量配置
+const globalDashboardMacros = ref([]) // 看板全局宏变量配置，自动提取自组件
+const editorMacros = ref([{ key: 'version', value: 's' }]) // 编辑器局部宏变量配置
 
 const dashboards = ref([])
 const activeDashboardId = ref(null)
@@ -504,7 +503,7 @@ const detailColumns = ref([])
 const detailTotal = ref(0)
 const detailPage = ref(1)
 const detailPageSize = ref(10)
-const currentContext = ref({ filters: {}, metric: '', sourceSql: '', dataSourceId: null })
+const currentContext = ref({ filters: {}, metric: '', sourceSql: '', dataSourceId: null, macros: {} })
 
 const thresholdDialogVisible = ref(false)
 const currentThresholds = ref([])
@@ -602,7 +601,7 @@ const handleEditorChartClick = (params) => {
   const dimCol = editorColumns.value[0]
   const rowData = editorTableData.value[params.dataIndex]
   const metricCol = params.seriesName // The clicked metric name
-  handleCellClick(rowData, { property: metricCol }, editorSql.value, editorMetricColumns.value, currentDataSourceId.value)
+  handleCellClick(rowData, { property: metricCol }, editorSql.value, editorMetricColumns.value, currentDataSourceId.value, getEditorMacrosDict())
 }
 
 const handleChartClick = (params, widget) => {
@@ -610,18 +609,57 @@ const handleChartClick = (params, widget) => {
   const dimCol = wd.columns[0]
   const rowData = wd.data[params.dataIndex]
   const metricCol = params.seriesName
-  handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id)
+  handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id, getWidgetMacrosDict(widget))
 }
 
 // === Macros Logic ===
-const addMacro = () => { globalMacros.value.push({ key: '', value: '' }) }
-const removeMacro = (idx) => { globalMacros.value.splice(idx, 1) }
-const getMacrosDict = () => {
+const addEditorMacro = () => { editorMacros.value.push({ key: '', value: '' }) }
+const removeEditorMacro = (idx) => { editorMacros.value.splice(idx, 1) }
+
+const getEditorMacrosDict = () => {
   const dict = {}
-  globalMacros.value.forEach(m => {
+  editorMacros.value.forEach(m => {
     if (m.key.trim()) dict[m.key.trim()] = m.value.trim()
   })
   return dict
+}
+
+const getWidgetMacrosDict = (widget) => {
+  const dict = {}
+  if (widget.query_macros && Array.isArray(widget.query_macros)) {
+    widget.query_macros.forEach(m => {
+      if (m.key.trim()) dict[m.key.trim()] = m.value.trim()
+    })
+  }
+  globalDashboardMacros.value.forEach(m => {
+    if (m.key.trim()) dict[m.key.trim()] = m.value.trim()
+  })
+  return dict
+}
+
+const computeDashboardGlobalMacros = () => {
+  const map = new Map()
+  globalDashboardMacros.value.forEach(m => {
+    map.set(m.key, m.value)
+  })
+  
+  const extractedKeys = new Set()
+  activeDashboardLayout.value.forEach(w => {
+    if (w.query_macros && Array.isArray(w.query_macros)) {
+      w.query_macros.forEach(m => {
+        extractedKeys.add(m.key)
+        if (!map.has(m.key)) {
+           map.set(m.key, m.value)
+        }
+      })
+    }
+  })
+  
+  const newGlobalMacros = []
+  extractedKeys.forEach(k => {
+    newGlobalMacros.push({ key: k, value: map.get(k) || '' })
+  })
+  globalDashboardMacros.value = newGlobalMacros
 }
 
 // --- Data Sources ---
@@ -671,7 +709,7 @@ const runEditorQuery = async () => {
     const headers = currentDataSourceId.value ? { 'x-data-source-id': currentDataSourceId.value } : {}
     const res = await axios.post(`${API_BASE}/query/raw`, { 
       sql: editorSql.value,
-      macros: getMacrosDict()
+      macros: getEditorMacrosDict()
     }, { headers })
     editorColumns.value = res.data.columns
     editorTableData.value = res.data.data
@@ -692,6 +730,7 @@ const saveCurrentQuery = async () => {
       raw_sql: editorSql.value, 
       data_source_id: currentDataSourceId.value,
       chart_type: editorChartType.value,
+      macros: editorMacros.value,
       thresholds: editorThresholds.value
     })
     ElMessage.success('保存成功')
@@ -713,6 +752,7 @@ const updateCurrentQuery = async () => {
       raw_sql: editorSql.value, 
       data_source_id: currentDataSourceId.value,
       chart_type: editorChartType.value,
+      macros: editorMacros.value,
       thresholds: editorThresholds.value
     })
     ElMessage.success('更新成功')
@@ -745,6 +785,7 @@ const loadQueryToEditor = (q) => {
   currentEditorQueryId.value = q.id
   editorSql.value = q.raw_sql; currentDataSourceId.value = q.data_source_id; editorChartType.value = q.chart_type || 'table'
   editorThresholds.value = Array.isArray(q.thresholds) ? JSON.parse(JSON.stringify(q.thresholds)) : []
+  editorMacros.value = Array.isArray(q.macros) ? JSON.parse(JSON.stringify(q.macros)) : []
   runEditorQuery()
 }
 
@@ -752,6 +793,7 @@ const resetEditor = () => {
   currentEditorQueryId.value = null
   editorSql.value = 'SELECT * FROM bi_demo.orders LIMIT 10'
   editorThresholds.value = []
+  editorMacros.value = [{ key: 'version', value: 's' }]
   editorTableData.value = []
   editorColumns.value = []
   editorMetricColumns.value = new Set()
@@ -790,6 +832,7 @@ const loadDashboard = async (db) => {
   isDashboardEditMode.value = false // 加载看板时默认阅读模式
   editingBoardName.value = false
   
+  computeDashboardGlobalMacros()
   activeDashboardLayout.value.forEach(w => { fetchWidgetData(w) })
 }
 
@@ -799,7 +842,7 @@ const fetchWidgetData = async (widget) => {
     const headers = widget.data_source_id ? { 'x-data-source-id': widget.data_source_id } : {}
     const res = await axios.post(`${API_BASE}/query/raw`, { 
       sql: widget.query_sql,
-      macros: getMacrosDict()
+      macros: getWidgetMacrosDict(widget)
     }, { headers })
     widgetData.value[widget.i] = {
       columns: res.data.columns,
@@ -825,14 +868,17 @@ const addWidgetToDashboard = (query) => {
   const newWidget = {
     i: newI, x: 0, y: 0, w: 6, h: 8,
     query_id: query.id, query_name: query.name, query_sql: query.raw_sql, query_thresholds: query.thresholds, 
+    query_macros: query.macros || [],
     data_source_id: query.data_source_id, chart_type: query.chart_type || 'table'
   }
   activeDashboardLayout.value.push(newWidget)
+  computeDashboardGlobalMacros()
   addWidgetDialogVisible.value = false
   fetchWidgetData(newWidget)
 }
 const removeWidget = (i) => {
   activeDashboardLayout.value = activeDashboardLayout.value.filter(w => w.i !== i)
+  computeDashboardGlobalMacros()
 }
 const saveDashboardLayout = async () => {
   savingLayout.value = true
@@ -1030,7 +1076,7 @@ const exportDetailToExcel = async () => {
       clicked_metric: currentContext.value.metric,
       limit: 100000, 
       offset: 0,
-      macros: getMacrosDict()
+      macros: currentContext.value.macros
     }, { headers })
     
     generateExcelWithStyle(exportRes.data.columns, exportRes.data.data, [], 'Drill_Through_Detail')
@@ -1042,14 +1088,14 @@ const exportDetailToExcel = async () => {
 }
 
 // --- Drill Through ---
-const handleCellClick = (row, column, sourceSql, metricCols, dsId) => {
+const handleCellClick = (row, column, sourceSql, metricCols, dsId, macros = {}) => {
   const colName = column.property
   if (!metricCols.has(colName)) return
   const filtersMap = {}
   for (const key in row) {
     if (!metricCols.has(key) && row[key] !== null) filtersMap[key] = row[key]
   }
-  currentContext.value = { filters: filtersMap, metric: colName, sourceSql, dataSourceId: dsId }
+  currentContext.value = { filters: filtersMap, metric: colName, sourceSql, dataSourceId: dsId, macros }
   detailPage.value = 1; detailVisible.value = true; loadDetailData()
 }
 
@@ -1061,7 +1107,7 @@ const loadDetailData = async (colOrPage = 1) => {
     const res = await axios.post(`${API_BASE}/drill-through`, {
       raw_sql: currentContext.value.sourceSql, filters: currentContext.value.filters,
       clicked_metric: currentContext.value.metric, limit: detailPageSize.value, offset: (detailPage.value - 1) * detailPageSize.value,
-      macros: getMacrosDict()
+      macros: currentContext.value.macros
     }, { headers })
     detailTotal.value = res.data.total; detailColumns.value = res.data.columns; detailData.value = res.data.data
   } catch (e) { ElMessage.error('明细加载失败') } finally { detailLoading.value = false }
