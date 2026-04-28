@@ -64,7 +64,7 @@
 前端作为承载可视化与数据分析的门户，基于 **Vue 3 (Composition API) + Vite** 构建，采用了成熟的高级组件生态来支持极客编辑与图表拖拽。
 
 ### 3.1 核心依赖栈
-*   **核心引擎**：Vue 3 (为了解决大宽表与巨量图表数据下 Grid Layout 拖拽卡顿的性能瓶颈，核心组件全面使用了 `shallowReactive` 与 `shallowRef`，并在外层节点监听 `mousedown` 早期事件构建了**原生 DOM 劫持与 CSS display:none 降级**机制。彻底将数万节点的 DOM 树从浏览器 Render Layer 中拔除，依靠 GPU 硬件加速实现零掉帧的极致体验，并在交互结束时派发 Resize 事件安全重构图表。)
+*   **核心引擎**：Vue 3 (为了解决大宽表与巨量图表数据下 Grid Layout 拖拽卡顿的性能瓶颈，核心组件全面使用了 `shallowReactive` 与 `shallowRef`，放弃了高风险的 DOM 劫持，转而结合 `pointer-events: none`（阻断拖拽期间的鼠标击穿和 Hover 计算重绘）与基于组件 `@move`、`@resize` 事件流的轻量级 `v-show` 骨架屏机制，在保证 Vue 响应式数据流不被破坏的前提下，实现了拉伸和拖拽时的丝滑 60FPS 体验。)
 *   **UI 骨架**：Element Plus
 *   **拖拽引擎**：`vue3-grid-layout`（驱动无限画布）
 *   **可视化图表**：Apache ECharts + `vue-echarts`
