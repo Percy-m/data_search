@@ -47,7 +47,7 @@
               </div>
             </div>
             
-            <div v-if="activeDashboard" class="board-view">
+            <div v-if="activeDashboard" class="board-view" :class="{'is-global-interacting': isGlobalInteracting}">
               <div class="board-title-section" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                   <h2 v-if="!isDashboardEditMode || !editingBoardName" style="margin:0;">{{ activeDashboard.name }}</h2>
@@ -89,7 +89,7 @@
                   :h="item.h"
                   :i="item.i"
                   class="widget-card"
-                  :class="{'widget-edit-mode': isDashboardEditMode}"
+                  :class="{'widget-edit-mode': isDashboardEditMode}" @move="startInteract" @moved="endInteract" @resize="startInteract" @resized="endInteract"
                 >
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }">
                     <div class="widget-header" >
@@ -634,7 +634,25 @@ const handleChartClick = (params, widget) => {
 
 
 
+
+const isGlobalInteracting = ref(false)
+let interactTimer = null
+const startInteract = () => {
+  if (interactTimer) clearTimeout(interactTimer)
+  isGlobalInteracting.value = true
+}
+const endInteract = () => {
+  if (interactTimer) clearTimeout(interactTimer)
+  interactTimer = setTimeout(() => {
+    isGlobalInteracting.value = false
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+  }, 100)
+}
+
 // === Macros Logic ===
+
 const addEditorMacro = () => { editorMacros.value.push({ key: '', value: '' }) }
 const removeEditorMacro = (idx) => { editorMacros.value.splice(idx, 1) }
 
@@ -1245,4 +1263,15 @@ onMounted(() => {
   pointer-events: none;
 }
 
+
+/* Global Interaction Performance CSS */
+.is-global-interacting .widget-content {
+  display: none !important;
+}
+.is-global-interacting .native-skeleton-overlay {
+  display: flex !important;
+}
+.widget-edit-mode .widget-content {
+  pointer-events: none;
+}
 </style>
