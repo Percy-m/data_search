@@ -116,7 +116,7 @@
                         @cell-click="(row, col, cell, evt) => handleCellClick(row, col, item.query_sql, widgetData[item.i].metrics, item.data_source_id, getWidgetMacrosDict(item))"
                       >
                         <el-table-column 
-                          v-for="c in widgetData[item.i].columns" 
+                          v-for="c in getRenderColumns(item.i)" 
                           :key="c" 
                           :prop="c" 
                           :label="c"
@@ -603,7 +603,10 @@ const getEditorChartOption = () => {
 const getChartOption = (widget) => {
   const wd = widgetData[widget.i]
   if (!wd || !wd.columns) return {}
-  return buildChartOption(widget.chart_type, wd.columns, wd.data)
+  const renderCols = isDashboardEditMode.value && wd.columns.length > 10 
+                     ? wd.columns.slice(0, 10) 
+                     : wd.columns;
+  return buildChartOption(widget.chart_type, renderCols, wd.data)
 }
 
 // Drill down via ECharts click
@@ -632,6 +635,15 @@ const getEditorMacrosDict = () => {
     if (m.key.trim()) dict[m.key.trim()] = m.value.trim()
   })
   return dict
+}
+
+const getRenderColumns = (widgetId) => {
+  const wd = widgetData[widgetId]
+  if (!wd || !wd.columns) return []
+  if (isDashboardEditMode.value && wd.columns.length > 10) {
+    return wd.columns.slice(0, 10)
+  }
+  return wd.columns
 }
 
 const getWidgetMacrosDict = (widget) => {
