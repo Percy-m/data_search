@@ -79,8 +79,6 @@
                 :margin="[10, 10]"
                 :use-css-transforms="true"
                 :class="{'grid-edit-mode': isDashboardEditMode}"
-                @dragEvent="handleGlobalDrag"
-                @resizeEvent="handleGlobalResize"
               >
                 <grid-item
                   v-for="item in activeDashboardLayout"
@@ -92,9 +90,13 @@
                   :i="item.i"
                   class="widget-card"
                   :class="{'widget-edit-mode': isDashboardEditMode}"
+                  @move="handleInteractStart(item.i)"
+                  @resize="handleInteractStart(item.i)"
+                  @moved="handleInteractEnd(item.i)"
+                  @resized="handleInteractEnd(item.i)"
                 >
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
-                    <div class="widget-header">
+                    <div class="widget-header" @mousedown="isDashboardEditMode ? handleInteractStart(item.i) : null">
                       <span class="widget-title">{{ item.query_name }}</span>
                       <div>
                         <!-- Always show download button -->
@@ -635,26 +637,18 @@ const handleChartClick = (params, widget) => {
   handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id, getWidgetMacrosDict(widget))
 }
 
-const handleGlobalDrag = (eventName, id) => {
-  if (eventName === 'dragstart') {
+const handleInteractStart = (i) => {
+  if (!interactingWidgets.value.has(i)) {
     const newSet = new Set(interactingWidgets.value)
-    newSet.add(id)
-    interactingWidgets.value = newSet
-  } else if (eventName === 'dragend') {
-    const newSet = new Set(interactingWidgets.value)
-    newSet.delete(id)
+    newSet.add(i)
     interactingWidgets.value = newSet
   }
 }
 
-const handleGlobalResize = (eventName, id) => {
-  if (eventName === 'resizestart') {
+const handleInteractEnd = (i) => {
+  if (interactingWidgets.value.has(i)) {
     const newSet = new Set(interactingWidgets.value)
-    newSet.add(id)
-    interactingWidgets.value = newSet
-  } else if (eventName === 'resizeend') {
-    const newSet = new Set(interactingWidgets.value)
-    newSet.delete(id)
+    newSet.delete(i)
     interactingWidgets.value = newSet
   }
 }
