@@ -2,36 +2,263 @@
   warnings.warn(
 INFO:     Will watch for changes in these directories: ['/Users/ano4679/PycharmProjects/DataSearch/back-end']
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [29294] using StatReload
+INFO:     Started reloader process [90333] using StatReload
 /Users/ano4679/PycharmProjects/DataSearch/back-end/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
   warnings.warn(
-INFO:     Started server process [29316]
+INFO:     Started server process [90336]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-[ClickHouse] Executing Raw SQL: SELECT country, city, count(*) as order_count, sum(revenue) as total_rev FROM bi_demo.orders GROUP BY country, city
-INFO:     127.0.0.1:55352 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55354 - "POST /api/v1/data/drill-through HTTP/1.1" 400 Bad Request
-WARNING:  StatReload detected changes in 'adapters/clickhouse.py'. Reloading...
+INFO:     127.0.0.1:61069 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61066 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61067 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+[Cache] MISS for query fingerprint: 0bc26e62, querying database...
+INFO:     127.0.0.1:61068 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[ClickHouse] Executing Raw SQL: SELECT o.country, sum(o.revenue) AS total_rev FROM bi_demo.orders AS o GROUP BY o.country
+INFO:     127.0.0.1:61069 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61069 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61069 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+[Cache] MISS for query fingerprint: 4918e741, querying database...
+[ClickHouse] Executing Raw SQL: SELECT o.country, count(DISTINCT o.order_id) AS unique_orders, count(DISTINCT c.customer_id) AS unique_customers, count(DISTINCT s.shipping_company) AS active_carriers, sum(o.revenue) AS total_revenue FROM bi_demo.orders AS o JOIN bi_demo.customers AS c ON o.customer_id = c.customer_id JOIN bi_demo.shipping AS s ON o.order_id = s.order_id GROUP BY o.country ORDER BY total_revenue DESC
+INFO:     127.0.0.1:61124 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61182 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+[Cache] MISS for query fingerprint: b8ed393d, querying database...
+[ClickHouse] Executing Raw SQL: SELECT s.shipping_company, o.category, s.shipping_status, count(o.order_id) AS order_count, sum(o.cost) AS total_cost, sum(o.profit) AS total_profit FROM bi_demo.orders AS o JOIN bi_demo.shipping AS s ON o.order_id = s.order_id GROUP BY s.shipping_company, o.category, s.shipping_status ORDER BY order_count DESC
+INFO:     127.0.0.1:61182 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61182 - "OPTIONS /api/v1/data/drill-through HTTP/1.1" 200 OK
+[ClickHouse] Executing Drill-through Count SQL: SELECT COUNT(*) AS total FROM (SELECT * FROM bi_demo.orders AS o JOIN bi_demo.shipping AS s ON o.order_id = s.order_id WHERE (shipping_company = '顺丰速运' AND category = '电子产品') AND shipping_status = 'Delivered')
+[ClickHouse] Executing Drill-through Data SQL: SELECT * FROM bi_demo.orders AS o JOIN bi_demo.shipping AS s ON o.order_id = s.order_id WHERE (shipping_company = '顺丰速运' AND category = '电子产品') AND shipping_status = 'Delivered' LIMIT 10 OFFSET 0
+INFO:     127.0.0.1:61182 - "POST /api/v1/data/drill-through HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61754 - "POST /api/v1/data-sources/ HTTP/1.1" 200 OK
+[DuckDB] Drill through execution failed: Failed to parse 'FROM ' into <class 'sqlglot.expressions.query.From'>
+INFO:     127.0.0.1:61806 - "POST /api/v1/data/drill-through HTTP/1.1" 400 Bad Request
+WARNING:  StatReload detected changes in 'adapters/duckdb.py'. Reloading...
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [29316]
+INFO:     Finished server process [90336]
 /Users/ano4679/PycharmProjects/DataSearch/back-end/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
   warnings.warn(
-INFO:     Started server process [29409]
+INFO:     Started server process [90772]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     127.0.0.1:55366 - "POST /api/v1/data/drill-through HTTP/1.1" 400 Bad Request
-WARNING:  StatReload detected changes in 'adapters/clickhouse.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [29409]
-/Users/ano4679/PycharmProjects/DataSearch/back-end/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
-  warnings.warn(
-INFO:     Started server process [29495]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-[ClickHouse] Executing Drill-through Count SQL: SELECT COUNT(*) AS total FROM (SELECT * FROM bi_demo.orders WHERE country = '中国')
-[ClickHouse] Executing Drill-through Data SQL: SELECT * FROM bi_demo.orders WHERE country = '中国' LIMIT 10 OFFSET 0
-INFO:     127.0.0.1:55470 - "POST /api/v1/data/drill-through HTTP/1.1" 200 OK
+[DuckDB] Drill Through SQL: SELECT * FROM bi_demo_orders WHERE country = 'China' LIMIT 10
+INFO:     127.0.0.1:62460 - "POST /api/v1/data/drill-through HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56106 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56103 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56104 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56105 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] MISS for query fingerprint: 0bc26e62, querying database...
+[ClickHouse] Executing Raw SQL: SELECT o.country, sum(o.revenue) AS total_rev FROM bi_demo.orders AS o GROUP BY o.country
+INFO:     127.0.0.1:56106 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56106 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56106 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+[Cache] MISS for query fingerprint: 4918e741, querying database...
+[ClickHouse] Executing Raw SQL: SELECT o.country, count(DISTINCT o.order_id) AS unique_orders, count(DISTINCT c.customer_id) AS unique_customers, count(DISTINCT s.shipping_company) AS active_carriers, sum(o.revenue) AS total_revenue FROM bi_demo.orders AS o JOIN bi_demo.customers AS c ON o.customer_id = c.customer_id JOIN bi_demo.shipping AS s ON o.order_id = s.order_id GROUP BY o.country ORDER BY total_revenue DESC
+INFO:     127.0.0.1:56106 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57334 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57333 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57335 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:57336 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57336 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 4918e741
+INFO:     127.0.0.1:57336 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57363 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57364 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 4918e741
+INFO:     127.0.0.1:57336 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+[Cache] MISS for query fingerprint: b8ed393d, querying database...
+[ClickHouse] Executing Raw SQL: SELECT s.shipping_company, o.category, s.shipping_status, count(o.order_id) AS order_count, sum(o.cost) AS total_cost, sum(o.profit) AS total_profit FROM bi_demo.orders AS o JOIN bi_demo.shipping AS s ON o.order_id = s.order_id GROUP BY s.shipping_company, o.category, s.shipping_status ORDER BY order_count DESC
+[Cache] MISS for query fingerprint: 1123cc5a, querying database...
+[ClickHouse] Executing Raw SQL: SELECT o.country, c.membership_level, s.shipping_company, count(o.order_id) AS order_volume, sum(o.revenue) AS total_revenue FROM bi_demo.orders AS o JOIN bi_demo.customers AS c ON o.customer_id = c.customer_id JOIN bi_demo.shipping AS s ON o.order_id = s.order_id WHERE s.shipping_status = 'Delivered' GROUP BY o.country, c.membership_level, s.shipping_company
+INFO:     127.0.0.1:57363 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57364 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57875 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57876 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:57878 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57877 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57876 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 4918e741
+INFO:     127.0.0.1:58059 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: b8ed393d
+[Cache] HIT for query fingerprint: 4918e741
+[Cache] HIT for query fingerprint: 1123cc5a
+INFO:     127.0.0.1:58106 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58104 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58105 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58610 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58607 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58608 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58609 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:58610 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58610 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58610 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53469 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53466 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53467 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53467 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53468 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:53469 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53467 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54420 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:54423 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54498 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54499 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54500 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:54501 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54500 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54515 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54514 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54516 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:54517 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54517 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54600 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54601 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:54603 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54602 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54601 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58105 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58102 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58103 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58104 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:58105 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58105 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58105 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63590 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63588 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63587 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63589 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:63590 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63590 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63590 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50747 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50746 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50748 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:50749 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50756 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50757 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50758 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:50759 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50756 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50771 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50772 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50773 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:50774 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50772 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50784 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50783 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50785 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:50786 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50786 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52359 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52358 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52360 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:52361 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52361 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50459 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 4918e741
+INFO:     127.0.0.1:50459 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53349 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53350 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: b8ed393d
+[Cache] HIT for query fingerprint: 4918e741
+[Cache] HIT for query fingerprint: 1123cc5a
+INFO:     127.0.0.1:53351 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53348 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53349 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63902 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63899 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63900 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63901 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:63901 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63902 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63901 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59863 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59860 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59861 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59862 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59862 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:59863 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59862 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53218 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53215 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53216 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53217 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:53218 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53217 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53217 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54913 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54911 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54910 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:54912 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54913 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54913 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54913 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55876 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55875 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55877 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:55878 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55878 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65452 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65449 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65450 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65450 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65451 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:65452 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65450 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49164 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49165 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49166 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:49167 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49165 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49242 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49243 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49244 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:49245 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49243 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52036 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52033 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52034 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52035 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:52036 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52036 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52036 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53423 - "OPTIONS /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53420 - "GET /api/v1/data-sources/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53421 - "GET /api/v1/saved-queries/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53422 - "GET /api/v1/dashboards/ HTTP/1.1" 200 OK
+[Cache] HIT for query fingerprint: 0bc26e62
+INFO:     127.0.0.1:53423 - "POST /api/v1/data/query/raw HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53423 - "OPTIONS /api/v1/data/meta/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53423 - "GET /api/v1/data/meta/tables HTTP/1.1" 200 OK

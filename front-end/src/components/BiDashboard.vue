@@ -89,10 +89,10 @@
                   :h="item.h"
                   :i="item.i"
                   class="widget-card"
-                  :class="{'widget-edit-mode': isDashboardEditMode}"
+                  :class="{'widget-edit-mode': isDashboardEditMode}" @move="isGlobalInteracting = true" @moved="isGlobalInteracting = false" @resize="isGlobalInteracting = true" @resized="isGlobalInteracting = false"
                 >
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }">
-                    <div class="widget-header" @mousedown="handleNativeDragStart">
+                    <div class="widget-header" >
                       <span class="widget-title">{{ item.query_name }}</span>
                       <div>
                         <!-- Always show download button -->
@@ -105,12 +105,12 @@
                     </div>
                     
                     <!-- Native DOM Hijack: Skeleton Overlay (Initially Hidden) -->
-                    <div class="native-skeleton-overlay" style="display: none; flex: 1; z-index: 100; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.95); border: 2px dashed #409EFF; border-radius: 4px;">
+                    <div v-show="isGlobalInteracting" class="vue-skeleton-overlay">
                       <el-icon size="30" color="#409EFF"><Menu /></el-icon>
                       <span style="margin-top: 10px; color: #409EFF; font-size: 14px; font-weight: bold;">正在调整布局...</span>
                     </div>
 
-                    <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px;" v-loading="widgetLoading[item.i]">
+                    <div class="widget-content" v-show="!(isGlobalInteracting)" style="flex: 1; overflow: auto; margin-top: 10px;" v-loading="widgetLoading[item.i]">
                       
                       <!-- 真实图表：永远显示真实数据，以便实时配置阈值观察效果。拖拽期间通过原生JS将其 opacity 置为 0.01 隐藏 -->
                       <div v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
@@ -497,7 +497,8 @@ const tempBoardName = ref('')
 const originalLayoutStr = ref('') // 保存编辑前的快照
 
 const addWidgetDialogVisible = ref(false)
-const widgetData = shallowReactive({}) 
+const widgetData = shallowReactive({})
+const isGlobalInteracting = ref(false) 
 const widgetLoading = ref({})
 
 const currentDataSourceId = ref(null)
@@ -633,49 +634,6 @@ const handleChartClick = (params, widget) => {
 }
 
 // --- Native DOM Hijack for Drag Performance ---
-const handleNativeDragStart = (e) => {
-  if (!isDashboardEditMode.value) return;
-  const draggedCard = e.currentTarget.closest('.widget-card');
-
-  document.querySelectorAll('.widget-card').forEach(card => {
-    // 1. 仅为当前正在拖拽的实体开启骨架屏遮罩提示
-    if (card === draggedCard) {
-      const overlay = card.querySelector('.native-skeleton-overlay');
-      if (overlay) overlay.style.display = 'flex';
-    }
-
-    // 2. 原生物理销毁渲染树 (Ultimate GPU Relief)
-    // 使用 display: none 彻底将几万个 DOM 从浏览器的 Layout 和 Paint 树中拔除
-    const content = card.querySelector('.widget-content');
-    if (content) {
-      content.style.display = 'none'; 
-    }
-  });
-}
-
-const restoreNativeWidgets = () => {
-  document.querySelectorAll('.widget-card').forEach(card => {
-    const overlay = card.querySelector('.native-skeleton-overlay');
-    if (overlay) overlay.style.display = 'none';
-    
-    const content = card.querySelector('.widget-content');
-    if (content) {
-      content.style.display = ''; // 恢复 DOM
-    }
-  })
-
-  // 关键防御：通知 ECharts 和 El-Table 重新计算尺寸，防止从 display: none 恢复后发生坍缩
-  requestAnimationFrame(() => {
-    window.dispatchEvent(new Event('resize'));
-  });
-}
-
-// 兜底防御：退出编辑模式绝对清空交互锁
-watch(isDashboardEditMode, (newVal) => {
-  if (!newVal) {
-    restoreNativeWidgets()
-  }
-})
 
 // === Macros Logic ===
 const addEditorMacro = () => { editorMacros.value.push({ key: '', value: '' }) }
@@ -968,7 +926,7 @@ const removeWidget = (i) => {
   computeDashboardGlobalMacros()
 }
 const saveDashboardLayout = async () => {
-  restoreNativeWidgets() // 保存前强行落地所有图表
+   // 保存前强行落地所有图表
   savingLayout.value = true
   try {
     const cleanWidgets = activeDashboardLayout.value.map(w => ({ 
@@ -1215,12 +1173,6 @@ onMounted(() => {
   fetchSavedQueries()
   fetchDashboards()
   runEditorQuery()
-  
-  // 全局防御：如果鼠标抬起时仍有组件被锁死在交互态，延迟强行释放
-  window.addEventListener('mouseup', () => {
-    // 延迟让 Vue 完成 x/y 的回写与 Vue-Grid-Layout 的重新排版
-    setTimeout(restoreNativeWidgets, 150)
-  })
 })
 </script>
 
@@ -1273,4 +1225,4 @@ onMounted(() => {
 .widget-edit-mode {
   border: 1px dashed #409EFF;
 }
-</style>
+.widget-edit-mode .widget-content { pointer-events: none; } .vue-skeleton-overlay { flex: 1; z-index: 100; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.95); border: 2px dashed #409EFF; border-radius: 4px; } </style>
