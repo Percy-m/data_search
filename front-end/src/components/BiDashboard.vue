@@ -105,12 +105,12 @@
                     </div>
                     
                     <!-- Native DOM Hijack: Skeleton Overlay (Initially Hidden) -->
-                    <div class="native-skeleton-overlay" style="display: none; position: absolute; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.95); border: 2px dashed #409EFF; border-radius: 4px;">
+                    <div class="native-skeleton-overlay" style="display: none; flex: 1; z-index: 100; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.95); border: 2px dashed #409EFF; border-radius: 4px;">
                       <el-icon size="30" color="#409EFF"><Menu /></el-icon>
-                      <span style="margin-top: 10px; color: #409EFF; font-size: 14px; font-weight: bold;">正在调整位置/大小...</span>
+                      <span style="margin-top: 10px; color: #409EFF; font-size: 14px; font-weight: bold;">正在调整布局...</span>
                     </div>
 
-                    <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px; transition: opacity 0.2s;" v-loading="widgetLoading[item.i]">
+                    <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px;" v-loading="widgetLoading[item.i]">
                       
                       <!-- 真实图表：永远显示真实数据，以便实时配置阈值观察效果。拖拽期间通过原生JS将其 opacity 置为 0.01 隐藏 -->
                       <div v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
@@ -644,13 +644,11 @@ const handleNativeDragStart = (e) => {
       if (overlay) overlay.style.display = 'flex';
     }
 
-    // 2. 原生冻结画布上【所有】底层复杂图表 (免命中测试 & GPU加速)
-    // 这样当发生网格挤压 (Compaction) 时，被挤开的其他图表也是以极致轻量态在移动
+    // 2. 原生物理销毁渲染树 (Ultimate GPU Relief)
+    // 使用 display: none 彻底将几万个 DOM 从浏览器的 Layout 和 Paint 树中拔除
     const content = card.querySelector('.widget-content');
     if (content) {
-      content.style.opacity = '0.01'; // 保持长宽计算，但不绘制
-      content.style.pointerEvents = 'none';
-      content.style.willChange = 'transform';
+      content.style.display = 'none'; 
     }
   });
 }
@@ -662,11 +660,14 @@ const restoreNativeWidgets = () => {
     
     const content = card.querySelector('.widget-content');
     if (content) {
-      content.style.opacity = '1';
-      content.style.pointerEvents = 'auto';
-      content.style.willChange = 'auto';
+      content.style.display = ''; // 恢复 DOM
     }
   })
+
+  // 关键防御：通知 ECharts 和 El-Table 重新计算尺寸，防止从 display: none 恢复后发生坍缩
+  requestAnimationFrame(() => {
+    window.dispatchEvent(new Event('resize'));
+  });
 }
 
 // 兜底防御：退出编辑模式绝对清空交互锁
