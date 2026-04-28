@@ -64,7 +64,7 @@
 前端作为承载可视化与数据分析的门户，基于 **Vue 3 (Composition API) + Vite** 构建，采用了成熟的高级组件生态来支持极客编辑与图表拖拽。
 
 ### 3.1 核心依赖栈
-*   **核心引擎**：Vue 3 (为了解决大宽表与巨量图表数据下 Grid Layout 拖拽卡顿的性能瓶颈，核心组件全面使用了 `shallowReactive` 与 `shallowRef`，并在外层节点监听 `mousedown` 早期事件构建了**原生 DOM 劫持与 CSS display:none 降级**机制。彻底将数万节点的 DOM 树从浏览器 Render Layer 中拔除，依靠 GPU 硬件加速实现零掉帧的极致体验，并在交互结束时派发 Resize 事件安全重构图表。)
+*   **核心引擎**：Vue 3 (为了解决大宽表与巨量图表数据下 Grid Layout 拖拽卡顿的性能瓶颈，核心组件全面使用了 `shallowReactive` 与 `shallowRef`，放弃了阻塞主线程的“原生 JS DOM 劫持”黑客手段，创新性地结合 `vue3-grid-layout` 底层注入的交互类名 (`.vue-draggable-dragging`, `.resizing`) 实现了**纯 CSS 级渲染树剥离 (Pure CSS Hardware Acceleration)**。在拖拽或拉伸的瞬间，通过 `display: none !important` 将该图表从 Layout 树中瞬时拔除并展示骨架屏，全程 0 JS 开销，保证 60FPS 极速顺滑。此外结合全局 `pointer-events: none` 彻底阻断了拖拽期间的鼠标击穿和底层 Hover 重绘，在原汁原味保留“排版时仅当前图表变骨架”的业务体验的同时，将渲染性能推至极限。)
 *   **UI 骨架**：Element Plus
 *   **拖拽引擎**：`vue3-grid-layout`（驱动无限画布）
 *   **可视化图表**：Apache ECharts + `vue-echarts`
