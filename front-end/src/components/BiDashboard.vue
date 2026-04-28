@@ -635,20 +635,24 @@ const handleChartClick = (params, widget) => {
 // --- Native DOM Hijack for Drag Performance ---
 const handleNativeDragStart = (e) => {
   if (!isDashboardEditMode.value) return;
-  const widgetCard = e.currentTarget.closest('.widget-card');
-  if (!widgetCard) return;
+  const draggedCard = e.currentTarget.closest('.widget-card');
 
-  // 1. 原生开启骨架屏遮罩
-  const overlay = widgetCard.querySelector('.native-skeleton-overlay');
-  if (overlay) overlay.style.display = 'flex';
+  document.querySelectorAll('.widget-card').forEach(card => {
+    // 1. 仅为当前正在拖拽的实体开启骨架屏遮罩提示
+    if (card === draggedCard) {
+      const overlay = card.querySelector('.native-skeleton-overlay');
+      if (overlay) overlay.style.display = 'flex';
+    }
 
-  // 2. 原生冻结底层复杂图表 (免命中测试 & GPU加速)
-  const content = widgetCard.querySelector('.widget-content');
-  if (content) {
-    content.style.opacity = '0.01'; // 保持长宽计算，但不绘制
-    content.style.pointerEvents = 'none';
-    content.style.willChange = 'transform';
-  }
+    // 2. 原生冻结画布上【所有】底层复杂图表 (免命中测试 & GPU加速)
+    // 这样当发生网格挤压 (Compaction) 时，被挤开的其他图表也是以极致轻量态在移动
+    const content = card.querySelector('.widget-content');
+    if (content) {
+      content.style.opacity = '0.01'; // 保持长宽计算，但不绘制
+      content.style.pointerEvents = 'none';
+      content.style.willChange = 'transform';
+    }
+  });
 }
 
 const restoreNativeWidgets = () => {
