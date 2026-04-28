@@ -79,6 +79,8 @@
                 :margin="[10, 10]"
                 :use-css-transforms="true"
                 :class="{'grid-edit-mode': isDashboardEditMode}"
+                @dragEvent="handleGlobalDrag"
+                @resizeEvent="handleGlobalResize"
               >
                 <grid-item
                   v-for="item in activeDashboardLayout"
@@ -90,10 +92,6 @@
                   :i="item.i"
                   class="widget-card"
                   :class="{'widget-edit-mode': isDashboardEditMode}"
-                  @move="handleInteractStart(item.i)"
-                  @resize="handleInteractStart(item.i)"
-                  @moved="handleInteractEnd(item.i)"
-                  @resized="handleInteractEnd(item.i)"
                 >
                   <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
                     <div class="widget-header">
@@ -463,7 +461,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, shallowReactive, onMounted } from 'vue'
+import { ref, shallowRef, shallowReactive, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Menu, Check, Close, Filter, DataLine, Download } from '@element-plus/icons-vue'
@@ -637,21 +635,36 @@ const handleChartClick = (params, widget) => {
   handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id, getWidgetMacrosDict(widget))
 }
 
-const handleInteractStart = (i) => {
-  if (!interactingWidgets.value.has(i)) {
+const handleGlobalDrag = (eventName, id) => {
+  if (eventName === 'dragstart') {
     const newSet = new Set(interactingWidgets.value)
-    newSet.add(i)
+    newSet.add(id)
+    interactingWidgets.value = newSet
+  } else if (eventName === 'dragend') {
+    const newSet = new Set(interactingWidgets.value)
+    newSet.delete(id)
     interactingWidgets.value = newSet
   }
 }
 
-const handleInteractEnd = (i) => {
-  if (interactingWidgets.value.has(i)) {
+const handleGlobalResize = (eventName, id) => {
+  if (eventName === 'resizestart') {
     const newSet = new Set(interactingWidgets.value)
-    newSet.delete(i)
+    newSet.add(id)
+    interactingWidgets.value = newSet
+  } else if (eventName === 'resizeend') {
+    const newSet = new Set(interactingWidgets.value)
+    newSet.delete(id)
     interactingWidgets.value = newSet
   }
 }
+
+// 兜底防御：退出编辑模式绝对清空交互锁
+watch(isDashboardEditMode, (newVal) => {
+  if (!newVal) {
+    interactingWidgets.value = new Set()
+  }
+})
 
 // === Macros Logic ===
 const addEditorMacro = () => { editorMacros.value.push({ key: '', value: '' }) }
@@ -944,10 +957,20 @@ const removeWidget = (i) => {
   computeDashboardGlobalMacros()
 }
 const saveDashboardLayout = async () => {
+  interactingWidgets.value = new Set() // 保存前强行落地所有图表
   savingLayout.value = true
   try {
+    const cleanWidgets = activeDashboardLayout.value.map(w => ({ 
+      query_id: w.query_id, 
+      x: Number(w.x) || 0, 
+      y: Number(w.y) || 0, 
+      w: Number(w.w) || 12, 
+      h: Number(w.h) || 8, 
+      i: String(w.i),
+      local_macros: w.local_macros || []
+    }))
     await axios.put(`${DASH_API_BASE}/${activeDashboardId.value}`, {
-      widgets: activeDashboardLayout.value.map(w => ({ query_id: w.query_id, x: w.x, y: w.y, w: w.w, h: w.h, i: w.i }))
+      widgets: cleanWidgets
     })
     ElMessage.success('布局已保存')
     isDashboardEditMode.value = false // 保存后退出编辑模式
@@ -1181,6 +1204,13 @@ onMounted(() => {
   fetchSavedQueries()
   fetchDashboards()
   runEditorQuery()
+  
+  // 全局防御：如果鼠标抬起时仍有组件被锁死在交互态，延迟强行释放
+  window.addEventListener('mouseup', () => {
+    if (interactingWidgets.value.size > 0) {
+      setTimeout(() => { interactingWidgets.value = new Set() }, 150)
+    }
+  })
 })
 </script>
 
