@@ -90,13 +90,9 @@
                   :i="item.i"
                   class="widget-card"
                   :class="{'widget-edit-mode': isDashboardEditMode}"
-                  @move="handleInteractStart(item.i)"
-                  @resize="handleInteractStart(item.i)"
-                  @moved="handleInteractEnd(item.i)"
-                  @resized="handleInteractEnd(item.i)"
                 >
-                  <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
-                    <div class="widget-header" @mousedown="isDashboardEditMode ? handleInteractStart(item.i) : null">
+                  <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }">
+                    <div class="widget-header" @mousedown="handleNativeDragStart">
                       <span class="widget-title">{{ item.query_name }}</span>
                       <div>
                         <!-- Always show download button -->
@@ -108,16 +104,16 @@
                       </div>
                     </div>
                     
-                    <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px;" v-loading="widgetLoading[item.i]">
-                      
-                      <!-- 动态骨架屏：仅在组件被物理拖拽/缩放的那一瞬间显示以保证极简DOM树 -->
-                      <div v-if="interactingWidgets.has(item.i)" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.8); border: 2px dashed #409EFF; border-radius: 4px;">
-                        <el-icon size="30" color="#409EFF"><Menu /></el-icon>
-                        <span style="margin-top: 10px; color: #409EFF; font-size: 14px; font-weight: bold;">正在调整位置/大小...</span>
-                      </div>
+                    <!-- Native DOM Hijack: Skeleton Overlay (Initially Hidden) -->
+                    <div class="native-skeleton-overlay" style="display: none; position: absolute; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.95); border: 2px dashed #409EFF; border-radius: 4px;">
+                      <el-icon size="30" color="#409EFF"><Menu /></el-icon>
+                      <span style="margin-top: 10px; color: #409EFF; font-size: 14px; font-weight: bold;">正在调整位置/大小...</span>
+                    </div>
 
-                      <!-- 真实图表：只要静止下来，永远显示真实数据，以便实时配置阈值观察效果 -->
-                      <div v-else v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
+                    <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px; transition: opacity 0.2s;" v-loading="widgetLoading[item.i]">
+                      
+                      <!-- 真实图表：永远显示真实数据，以便实时配置阈值观察效果。拖拽期间通过原生JS将其 opacity 置为 0.01 隐藏 -->
+                      <div v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
                         <!-- Table View -->
                         <el-table 
                           v-if="widgetData[item.i] && (!item.chart_type || item.chart_type === 'table')"
@@ -496,7 +492,6 @@ const newDashboardName = ref('')
 const newDashboardDesc = ref('')
 const savingLayout = ref(false)
 const isDashboardEditMode = ref(false) // 看板编辑模式状态
-const interactingWidgets = ref(new Set()) // 正在被拖拽或缩放的组件的 i 集合
 const editingBoardName = ref(false)
 const tempBoardName = ref('')
 const originalLayoutStr = ref('') // 保存编辑前的快照
@@ -637,26 +632,43 @@ const handleChartClick = (params, widget) => {
   handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id, getWidgetMacrosDict(widget))
 }
 
-const handleInteractStart = (i) => {
-  if (!interactingWidgets.value.has(i)) {
-    const newSet = new Set(interactingWidgets.value)
-    newSet.add(i)
-    interactingWidgets.value = newSet
+// --- Native DOM Hijack for Drag Performance ---
+const handleNativeDragStart = (e) => {
+  if (!isDashboardEditMode.value) return;
+  const widgetCard = e.currentTarget.closest('.widget-card');
+  if (!widgetCard) return;
+
+  // 1. 原生开启骨架屏遮罩
+  const overlay = widgetCard.querySelector('.native-skeleton-overlay');
+  if (overlay) overlay.style.display = 'flex';
+
+  // 2. 原生冻结底层复杂图表 (免命中测试 & GPU加速)
+  const content = widgetCard.querySelector('.widget-content');
+  if (content) {
+    content.style.opacity = '0.01'; // 保持长宽计算，但不绘制
+    content.style.pointerEvents = 'none';
+    content.style.willChange = 'transform';
   }
 }
 
-const handleInteractEnd = (i) => {
-  if (interactingWidgets.value.has(i)) {
-    const newSet = new Set(interactingWidgets.value)
-    newSet.delete(i)
-    interactingWidgets.value = newSet
-  }
+const restoreNativeWidgets = () => {
+  document.querySelectorAll('.widget-card').forEach(card => {
+    const overlay = card.querySelector('.native-skeleton-overlay');
+    if (overlay) overlay.style.display = 'none';
+    
+    const content = card.querySelector('.widget-content');
+    if (content) {
+      content.style.opacity = '1';
+      content.style.pointerEvents = 'auto';
+      content.style.willChange = 'auto';
+    }
+  })
 }
 
 // 兜底防御：退出编辑模式绝对清空交互锁
 watch(isDashboardEditMode, (newVal) => {
   if (!newVal) {
-    interactingWidgets.value = new Set()
+    restoreNativeWidgets()
   }
 })
 
@@ -951,7 +963,7 @@ const removeWidget = (i) => {
   computeDashboardGlobalMacros()
 }
 const saveDashboardLayout = async () => {
-  interactingWidgets.value = new Set() // 保存前强行落地所有图表
+  restoreNativeWidgets() // 保存前强行落地所有图表
   savingLayout.value = true
   try {
     const cleanWidgets = activeDashboardLayout.value.map(w => ({ 
@@ -1201,9 +1213,8 @@ onMounted(() => {
   
   // 全局防御：如果鼠标抬起时仍有组件被锁死在交互态，延迟强行释放
   window.addEventListener('mouseup', () => {
-    if (interactingWidgets.value.size > 0) {
-      setTimeout(() => { interactingWidgets.value = new Set() }, 150)
-    }
+    // 延迟让 Vue 完成 x/y 的回写与 Vue-Grid-Layout 的重新排版
+    setTimeout(restoreNativeWidgets, 150)
   })
 })
 </script>
