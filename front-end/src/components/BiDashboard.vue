@@ -47,7 +47,7 @@
               </div>
             </div>
             
-            <div v-if="activeDashboard" class="board-view" :class="{'is-global-interacting': isGlobalInteracting}">
+            <div v-if="activeDashboard" class="board-view">
               <div class="board-title-section" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                   <h2 v-if="!isDashboardEditMode || !editingBoardName" style="margin:0;">{{ activeDashboard.name }}</h2>
@@ -78,7 +78,7 @@
                 :vertical-compact="true"
                 :margin="[10, 10]"
                 :use-css-transforms="true"
-                :class="{'grid-edit-mode': isDashboardEditMode}" @layout-updated="handleLayoutUpdated"
+                :class="{'grid-edit-mode': isDashboardEditMode}"
               >
                 <grid-item
                   v-for="item in activeDashboardLayout"
@@ -89,10 +89,10 @@
                   :h="item.h"
                   :i="item.i"
                   class="widget-card"
-                  :class="{'widget-edit-mode': isDashboardEditMode}" @move="startInteract" @moved="endInteract" @resize="startInteract" @resized="endInteract"
+                  :class="{'widget-edit-mode': isDashboardEditMode}"
                 >
-                  <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }">
-                    <div class="widget-header" >
+                  <el-card shadow="hover" style="height: 100%; display: flex; flex-direction: column;" :body-style="{ padding: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
+                    <div class="widget-header">
                       <span class="widget-title">{{ item.query_name }}</span>
                       <div>
                         <!-- Always show download button -->
@@ -104,54 +104,44 @@
                       </div>
                     </div>
                     
-                    <!-- Native DOM Hijack: Skeleton Overlay (Initially Hidden) -->
-                    <div class="native-skeleton-overlay" style="display: none; flex: 1; z-index: 100; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(245, 247, 250, 0.95); border: 2px dashed #409EFF; border-radius: 4px;">
-                      <el-icon size="30" color="#409EFF"><Menu /></el-icon>
-                      <span style="margin-top: 10px; color: #409EFF; font-size: 14px; font-weight: bold;">正在调整布局...</span>
-                    </div>
-
                     <div class="widget-content" style="flex: 1; overflow: auto; margin-top: 10px;" v-loading="widgetLoading[item.i]">
-                      
-                      <!-- 真实图表：永远显示真实数据，以便实时配置阈值观察效果。拖拽期间通过原生JS将其 opacity 置为 0.01 隐藏 -->
-                      <div v-memo="[widgetData[item.i], widgetLoading[item.i], item.chart_type, item.query_thresholds]" style="width: 100%; height: 100%">
-                        <!-- Table View -->
-                        <el-table 
-                          v-if="widgetData[item.i] && (!item.chart_type || item.chart_type === 'table')"
-                          :data="widgetData[item.i].data" 
-                          border 
-                          size="small"
-                          style="width: 100%; height: 100%"
-                          :cell-style="(ctx) => getWidgetCellStyle(ctx, item.query_thresholds)"
-                          @cell-click="(row, col, cell, evt) => handleCellClick(row, col, item.query_sql, widgetData[item.i].metrics, item.data_source_id, getWidgetMacrosDict(item))"
+                      <!-- Table View -->
+                      <el-table 
+                        v-if="widgetData[item.i] && (!item.chart_type || item.chart_type === 'table')"
+                        :data="widgetData[item.i].data" 
+                        border 
+                        size="small"
+                        style="width: 100%; height: 100%"
+                        :cell-style="(ctx) => getWidgetCellStyle(ctx, item.query_thresholds)"
+                        @cell-click="(row, col, cell, evt) => handleCellClick(row, col, item.query_sql, widgetData[item.i].metrics, item.data_source_id, getWidgetMacrosDict(item))"
+                      >
+                        <el-table-column 
+                          v-for="c in widgetData[item.i].columns" 
+                          :key="c" 
+                          :prop="c" 
+                          :label="c"
+                          show-overflow-tooltip
                         >
-                          <el-table-column 
-                            v-for="c in widgetData[item.i].columns" 
-                            :key="c" 
-                            :prop="c" 
-                            :label="c"
-                            show-overflow-tooltip
-                          >
-                            <template #default="scope">
-                              <span 
-                                v-if="widgetData[item.i].metrics.has(c)" 
-                                class="clickable-metric"
-                              >
-                                {{ scope.row[c] }}
-                              </span>
-                              <span v-else>{{ scope.row[c] }}</span>
-                            </template>
-                          </el-table-column>
-                        </el-table>
+                          <template #default="scope">
+                            <span 
+                              v-if="widgetData[item.i].metrics.has(c)" 
+                              class="clickable-metric"
+                            >
+                              {{ scope.row[c] }}
+                            </span>
+                            <span v-else>{{ scope.row[c] }}</span>
+                          </template>
+                        </el-table-column>
+                      </el-table>
 
-                        <!-- ECharts View (Bar/Line/Pie) -->
-                        <v-chart 
-                          v-else-if="widgetData[item.i] && item.chart_type !== 'table'" 
-                          :option="getChartOption(item)" 
-                          autoresize 
-                          style="width: 100%; height: 100%;"
-                          @click="(params) => handleChartClick(params, item)"
-                        />
-                      </div>
+                      <!-- ECharts View (Bar/Line/Pie) -->
+                      <v-chart 
+                        v-else-if="widgetData[item.i] && item.chart_type !== 'table'" 
+                        :option="getChartOption(item)" 
+                        autoresize 
+                        style="width: 100%; height: 100%;"
+                        @click="(params) => handleChartClick(params, item)"
+                      />
                     </div>
                   </el-card>
                 </grid-item>
@@ -459,7 +449,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, shallowReactive, onMounted, watch } from 'vue'
+import { ref, shallowRef, shallowReactive, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Menu, Check, Close, Filter, DataLine, Download } from '@element-plus/icons-vue'
@@ -632,27 +622,7 @@ const handleChartClick = (params, widget) => {
   handleCellClick(rowData, { property: metricCol }, widget.query_sql, wd.metrics, widget.data_source_id, getWidgetMacrosDict(widget))
 }
 
-
-
-
-const isGlobalInteracting = ref(false)
-let interactTimer = null
-const startInteract = () => {
-  if (interactTimer) clearTimeout(interactTimer)
-  isGlobalInteracting.value = true
-}
-const endInteract = () => {
-  if (interactTimer) clearTimeout(interactTimer)
-  interactTimer = setTimeout(() => {
-    isGlobalInteracting.value = false
-    requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('resize'))
-    })
-  }, 100)
-}
-
 // === Macros Logic ===
-
 const addEditorMacro = () => { editorMacros.value.push({ key: '', value: '' }) }
 const removeEditorMacro = (idx) => { editorMacros.value.splice(idx, 1) }
 
@@ -942,27 +912,11 @@ const removeWidget = (i) => {
   activeDashboardLayout.value = activeDashboardLayout.value.filter(w => w.i !== i)
   computeDashboardGlobalMacros()
 }
-const handleLayoutUpdated = () => {
-  requestAnimationFrame(() => {
-    window.dispatchEvent(new Event("resize"))
-  })
-}
-
 const saveDashboardLayout = async () => {
-  // 保存前强行落地所有图表
   savingLayout.value = true
   try {
-    const cleanWidgets = activeDashboardLayout.value.map(w => ({ 
-      query_id: w.query_id, 
-      x: Number(w.x) || 0, 
-      y: Number(w.y) || 0, 
-      w: Number(w.w) || 12, 
-      h: Number(w.h) || 8, 
-      i: String(w.i),
-      local_macros: w.local_macros || []
-    }))
     await axios.put(`${DASH_API_BASE}/${activeDashboardId.value}`, {
-      widgets: cleanWidgets
+      widgets: activeDashboardLayout.value.map(w => ({ query_id: w.query_id, x: w.x, y: w.y, w: w.w, h: w.h, i: w.i }))
     })
     ElMessage.success('布局已保存')
     isDashboardEditMode.value = false // 保存后退出编辑模式
@@ -1247,31 +1201,5 @@ onMounted(() => {
 }
 .widget-edit-mode {
   border: 1px dashed #409EFF;
-}
-/* High-Performance Drag & Resize CSS Hardware Acceleration */
-:deep(.vue-draggable-dragging) .widget-content,
-:deep(.resizing) .widget-content {
-  display: none !important;
-}
-
-:deep(.vue-draggable-dragging) .native-skeleton-overlay,
-:deep(.resizing) .native-skeleton-overlay {
-  display: flex !important;
-}
-
-.widget-edit-mode .widget-content {
-  pointer-events: none;
-}
-
-
-/* Global Interaction Performance CSS */
-.is-global-interacting .widget-content {
-  display: none !important;
-}
-.is-global-interacting .native-skeleton-overlay {
-  display: flex !important;
-}
-.widget-edit-mode .widget-content {
-  pointer-events: none;
 }
 </style>
