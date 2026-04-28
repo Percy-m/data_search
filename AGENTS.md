@@ -14,25 +14,29 @@
 
 - **Backend (Python 3.9 + FastAPI)**:
   - Directory: `back-end/`
-  - Run Server: `cd back-end && .venv/bin/python main.py` or `cd back-end && .venv/bin/python -m uvicorn main:app --reload`.
+  - Run Server: `cd back-end && .venv/bin/python -m uvicorn main:app --reload`
   - Package Management: Use the local `back-end/.venv` environment (e.g., `back-end/.venv/bin/pip`).
 - **Frontend (Vue 3 + Vite)**:
   - Directory: `front-end/`
-  - Run Dev Server: `cd front-end && npm run dev`.
+  - Run Dev Server: `cd front-end && npm run dev`
   - Core Stack: Element Plus, ECharts (`vue-echarts`), `vue3-grid-layout`, `exceljs`.
 - **Metadata Database (PostgreSQL)**:
   - Managed via Docker Compose (`docker-compose up -d` in root). Essential for data sources, saved queries, and dashboards.
 - **IDE**: PyCharm project. Ignore the `.idea/` directory.
 
-## Architecture & Conventions (Backend)
-
-Follows **Ports and Adapters (Hexagonal) Architecture** to remain database-agnostic. Code should ensure high availability, scalability, and domain abstraction.
+## Backend Architecture (Hexagonal)
 
 - `back-end/core/`: Pure domain models (`models.py`), interface definitions (`ports.py`).
-- `back-end/infrastructure/`: Concrete data persistence implementations (`repositories.py`), PostgreSQL ORM models (`orm_models.py`), and DB session setup (`database.py`).
-- `back-end/adapters/`: Concrete DB implementations (e.g., `clickhouse.py`). All SQL translation lives here.
+- `back-end/infrastructure/`: PostgreSQL ORM models (`orm_models.py`) and implementations (`repositories.py`).
+  - **No Physical Foreign Keys**: Physical foreign keys have been stripped from `orm_models.py`. Logical aggregation is handled in `repositories.py`.
+- `back-end/adapters/`: Concrete DB implementations (e.g., `clickhouse.py`, `duckdb.py`). All SQL translation lives here.
 - `back-end/services/`: Core business logic (`query.py`). Operates purely on `DataSourcePort`.
 - `back-end/api/`: FastAPI routes. Dynamically instantiates the correct adapter via `x-data-source-id` header fetching config from PostgreSQL.
+
+## Frontend Architecture
+
+- **Performance with Large Data**: Vue's deep Proxy (`reactive`, `ref`) creates severe performance bottlenecks with large datasets or grid components. 
+  - **CRITICAL**: Must use `shallowReactive` and `markRaw` for large data arrays and ECharts/Grid items to ensure the `vue3-grid-layout` drag-and-drop engine remains performant.
 
 ## Query & Drill-down Design
 
@@ -42,8 +46,9 @@ Follows **Ports and Adapters (Hexagonal) Architecture** to remain database-agnos
   - **COUNT(DISTINCT)** handling: Modifies projection to `SELECT table.*` and appends `LIMIT 1 BY table.field` to return deduped rows without metric distortion.
 - **Dynamic Table Mapping (Macro Variables)**: 
   - Frontend passes `macros: Dict[str, str]`.
-  - Backend uses `sqlglot` to find `Table` nodes with placeholders (e.g., `{{version}}`) and injects macro values directly into the AST structure.
+  - **CRITICAL**: Backend uses **string-level pre-compilation (regex whitelist)** in `QueryService` *before* AST parsing, **not** AST replacement. This is because `{}` (e.g., `{{version}}`) is incorrectly parsed as Map/Dictionary literals by `sqlglot` in ClickHouse dialect, breaking the AST.
 
 ## Testing & Tooling
 
-- There are currently no established test suites, linters, or formatters. Do not proactively introduce arbitrary ones without explicit user direction.
+- **No Toolchain**: There are currently no established test suites, linters, or formatters. Do not proactively introduce arbitrary ones without explicit user direction.
+- **Acceptance Criteria**: Refer to `TEST_PLAN.md` for business scenario checklists and manual acceptance test criteria.
