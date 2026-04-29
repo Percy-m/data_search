@@ -286,7 +286,7 @@
                   :total="editorTotal" 
                   v-model:page-size="editorPageSize"
                   v-model:current-page="editorPage"
-                  :page-sizes="[50, 100, 500]"
+                  :page-sizes="[10, 20, 50]"
                   @current-change="runEditorQuery"
                   @size-change="runEditorQuery"
                 />
@@ -522,7 +522,7 @@ const currentEditorQueryId = ref(null) // 记录当前正在编辑的已存查�
 const editorSql = ref('SELECT o.country, sum(o.revenue) as total_rev \nFROM bi_demo.orders o \nGROUP BY o.country')
 const editorLoading = ref(false)
 const editorPage = ref(1)
-const editorPageSize = ref(100)
+const editorPageSize = ref(10)
 const editorTotal = ref(0)
 const widgetPagination = reactive({})
 
@@ -923,7 +923,7 @@ const fetchWidgetData = async (widget) => {
   
   // init pagination state if not exists
   if (!widgetPagination[widget.i]) {
-    widgetPagination[widget.i] = { page: 1, size: 50, total: 0 }
+    widgetPagination[widget.i] = { page: 1, size: 10, total: 0 }
   }
   
   try {
