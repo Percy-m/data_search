@@ -62,11 +62,23 @@ class DuckDBAdapter(DataSourcePort):
             raise Exception(f"DuckDB query execution failed: {str(e)}")
 
     def execute_raw_query(self, query: RawQueryRequest) -> QueryResult:
+        total_count = -1
         try:
             ast = sqlglot.parse_one(query.sql, read="duckdb")
-            final_sql = ast.sql(dialect="duckdb")
-            print(f"[DuckDB] Executing Raw SQL: {final_sql}")
+            base_sql = ast.sql(dialect="duckdb")
+            final_sql = base_sql
             
+            if query.limit is not None:
+                try:
+                    count_sql = f"SELECT count(*) FROM ({base_sql}) AS __subq"
+                    c_cursor = self.conn.cursor()
+                    c_cursor.execute(count_sql)
+                    total_count = int(c_cursor.fetchone()[0])
+                    final_sql = f"{base_sql} LIMIT {query.limit} OFFSET {query.offset}"
+                except Exception as ce:
+                    print(f"[DuckDB] Count failed: {ce}")
+            
+            print(f"[DuckDB] Executing Raw SQL: {final_sql}")
             cursor = self.conn.cursor()
             cursor.execute(final_sql)
             if cursor.description:
@@ -75,10 +87,20 @@ class DuckDBAdapter(DataSourcePort):
             else:
                 columns = []
                 data = []
-            return QueryResult(columns=columns, data=data)
+            return QueryResult(columns=columns, data=data, total=total_count)
         except Exception as e:
             print(f"[DuckDB] AST Parse Failed, attempting fallback execution: {e}")
             fallback_sql = query.sql
+            if query.limit is not None:
+                try:
+                    count_sql = f"SELECT count(*) FROM ({fallback_sql}) AS __subq"
+                    c_cursor = self.conn.cursor()
+                    c_cursor.execute(count_sql)
+                    total_count = int(c_cursor.fetchone()[0])
+                    fallback_sql = f"{fallback_sql} LIMIT {query.limit} OFFSET {query.offset}"
+                except Exception as ce:
+                    print(f"[DuckDB] Fallback count failed: {ce}")
+                    
             cursor = self.conn.cursor()
             cursor.execute(fallback_sql)
             if cursor.description:
@@ -87,7 +109,7 @@ class DuckDBAdapter(DataSourcePort):
             else:
                 columns = []
                 data = []
-            return QueryResult(columns=columns, data=data)
+            return QueryResult(columns=columns, data=data, total=total_count)
 
     def execute_drill_through(self, request: DrillThroughRequest) -> DrillThroughResult:
         try:

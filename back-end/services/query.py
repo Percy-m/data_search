@@ -46,7 +46,7 @@ class QueryService:
         # Pre-compile SQL securely before any cache hash generation or DB execution
         safe_sql = self._pre_compile_macros(request.sql, request.macros)
         
-        cache_key = generate_cache_key(self.data_source_id, safe_sql, {}) # macros are already compiled into SQL
+        cache_key = generate_cache_key(self.data_source_id, safe_sql, {"limit": request.limit, "offset": request.offset}) # macros are already compiled into SQL
         
         cached_res = get_cached_result(cache_key)
         if cached_res is not None:

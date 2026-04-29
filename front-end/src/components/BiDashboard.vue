@@ -133,6 +133,18 @@
                           </template>
                         </el-table-column>
                       </el-table>
+                      
+                      <!-- Widget Pagination (Only for Table type) -->
+                      <div v-if="widgetData[item.i] && (!item.chart_type || item.chart_type === 'table') && widgetPagination[item.i]" class="widget-pagination" style="display: flex; justify-content: flex-end; padding-top: 5px;">
+                        <el-pagination 
+                          small 
+                          layout="total, prev, pager, next" 
+                          :total="widgetPagination[item.i].total" 
+                          :page-size="widgetPagination[item.i].size"
+                          :current-page="widgetPagination[item.i].page"
+                          @current-change="(val) => handleWidgetPageChange(item.i, val)" 
+                        />
+                      </div>
 
                       <!-- ECharts View (Bar/Line/Pie) -->
                       <v-chart 
@@ -266,6 +278,19 @@
                   </template>
                 </el-table-column>
               </el-table>
+              
+              <div v-if="editorChartType === 'table'" style="display: flex; justify-content: flex-end; padding-top: 10px; flex-shrink: 0;">
+                <el-pagination 
+                  background 
+                  layout="total, sizes, prev, pager, next, jumper" 
+                  :total="editorTotal" 
+                  v-model:page-size="editorPageSize"
+                  v-model:current-page="editorPage"
+                  :page-sizes="[50, 100, 500]"
+                  @current-change="runEditorQuery"
+                  @size-change="runEditorQuery"
+                />
+              </div>
 
               <!-- 预览：ECharts -->
               <v-chart 
@@ -449,7 +474,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, shallowReactive, onMounted } from 'vue'
+import { ref, shallowRef, shallowReactive, reactive, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Menu, Check, Close, Filter, DataLine, Download } from '@element-plus/icons-vue'
@@ -496,6 +521,11 @@ const tablesLoading = ref(false)
 const currentEditorQueryId = ref(null) // 记录当前正在编辑的已存查询的 ID
 const editorSql = ref('SELECT o.country, sum(o.revenue) as total_rev \nFROM bi_demo.orders o \nGROUP BY o.country')
 const editorLoading = ref(false)
+const editorPage = ref(1)
+const editorPageSize = ref(100)
+const editorTotal = ref(0)
+const widgetPagination = reactive({})
+
 const editorTableData = shallowRef([])
 const editorColumns = ref([])
 const editorMetricColumns = ref(new Set())
@@ -751,12 +781,18 @@ const runEditorQuery = async () => {
   editorLoading.value = true
   try {
     const headers = currentDataSourceId.value ? { 'x-data-source-id': currentDataSourceId.value } : {}
-    const res = await axios.post(`${API_BASE}/query/raw`, { 
+    const payload = { 
       sql: editorSql.value,
       macros: getEditorMacrosDict()
-    }, { headers })
+    }
+    if (editorChartType.value === 'table') {
+        payload.limit = editorPageSize.value
+        payload.offset = (editorPage.value - 1) * editorPageSize.value
+    }
+    const res = await axios.post(`${API_BASE}/query/raw`, payload, { headers })
     editorColumns.value = res.data.columns
     editorTableData.value = res.data.data
+    if (res.data.total !== -1) editorTotal.value = res.data.total
     editorMetricColumns.value = parseMetrics(editorSql.value, res.data.columns)
   } catch (e) { ElMessage.error('查询失败: ' + e.message) } finally { editorLoading.value = false }
 }
@@ -842,6 +878,8 @@ const resetEditor = () => {
   editorColumns.value = []
   editorMetricColumns.value = new Set()
   editorChartType.value = 'table'
+  editorPage.value = 1
+  editorTotal.value = 0
 }
 
 // --- Dashboards ---
@@ -882,12 +920,32 @@ const loadDashboard = async (db) => {
 
 const fetchWidgetData = async (widget) => {
   widgetLoading.value[widget.i] = true
+  
+  // init pagination state if not exists
+  if (!widgetPagination[widget.i]) {
+    widgetPagination[widget.i] = { page: 1, size: 50, total: 0 }
+  }
+  
   try {
     const headers = widget.data_source_id ? { 'x-data-source-id': widget.data_source_id } : {}
-    const res = await axios.post(`${API_BASE}/query/raw`, { 
+    const payload = { 
       sql: widget.query_sql,
       macros: getWidgetMacrosDict(widget)
-    }, { headers })
+    }
+    
+    // Only apply pagination if it's a table chart
+    if (!widget.chart_type || widget.chart_type === 'table') {
+       const pagination = widgetPagination[widget.i]
+       payload.limit = pagination.size
+       payload.offset = (pagination.page - 1) * pagination.size
+    }
+    
+    const res = await axios.post(`${API_BASE}/query/raw`, payload, { headers })
+    
+    if (res.data.total !== -1) {
+       widgetPagination[widget.i].total = res.data.total
+    }
+    
     widgetData[widget.i] = {
       columns: res.data.columns,
       data: res.data.data,
@@ -899,6 +957,15 @@ const fetchWidgetData = async (widget) => {
     widgetLoading.value[widget.i] = false
   }
 }
+
+const handleWidgetPageChange = (widgetId, newPage) => {
+  if (widgetPagination[widgetId]) {
+    widgetPagination[widgetId].page = newPage
+    const widget = activeDashboardLayout.value.find(w => w.i === widgetId)
+    if (widget) fetchWidgetData(widget)
+  }
+}
+
 
 const refreshActiveDashboard = () => {
   if (activeDashboardLayout.value) {

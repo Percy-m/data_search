@@ -51,25 +51,43 @@ class ClickHouseAdapter(DataSourcePort):
         return QueryResult(columns=columns, data=data)
 
     def execute_raw_query(self, query: RawQueryRequest) -> QueryResult:
+        total_count = -1
         try:
-            # At this point, the SQL has already been pre-compiled safely with macros by the Service layer.
-            # We still parse it back and forth through sqlglot to ensure standard dialect output and validation.
             ast = sqlglot.parse_one(query.sql, read="clickhouse")
-            final_sql = ast.sql(dialect="clickhouse")
-            print(f"[ClickHouse] Executing Raw SQL: {final_sql}")
+            base_sql = ast.sql(dialect="clickhouse")
+            final_sql = base_sql
             
+            if query.limit is not None:
+                try:
+                    count_sql = f"SELECT count(*) FROM ({base_sql}) AS __subq"
+                    count_result = self.client.query(count_sql)
+                    total_count = int(count_result.result_rows[0][0])
+                    final_sql = f"{base_sql} LIMIT {query.limit} OFFSET {query.offset}"
+                except Exception as ce:
+                    print(f"[ClickHouse] Count failed: {ce}")
+            
+            print(f"[ClickHouse] Executing Raw SQL: {final_sql}")
             result = self.client.query(final_sql)
             columns = result.column_names
             data = [dict(zip(columns, row)) for row in result.result_rows]
-            return QueryResult(columns=columns, data=data)
+            return QueryResult(columns=columns, data=data, total=total_count)
+            
         except Exception as e:
-            # Fallback if parsing fails (for highly complex custom clickhouse syntax not supported by sqlglot)
             print(f"[ClickHouse] AST Parse Failed, attempting fallback execution: {e}")
             fallback_sql = query.sql
+            if query.limit is not None:
+                try:
+                    count_sql = f"SELECT count(*) FROM ({fallback_sql}) AS __subq"
+                    count_result = self.client.query(count_sql)
+                    total_count = int(count_result.result_rows[0][0])
+                    fallback_sql = f"{fallback_sql} LIMIT {query.limit} OFFSET {query.offset}"
+                except Exception as ce:
+                    print(f"[ClickHouse] Fallback count failed: {ce}")
+                    
             result = self.client.query(fallback_sql)
             columns = result.column_names
             data = [dict(zip(columns, row)) for row in result.result_rows]
-            return QueryResult(columns=columns, data=data)
+            return QueryResult(columns=columns, data=data, total=total_count)
 
     def execute_drill_through(self, request: DrillThroughRequest) -> DrillThroughResult:
         try:

@@ -26,22 +26,28 @@ class DrillDownRequest(BaseModel):
 class QueryResult(BaseModel):
     columns: List[str]
     data: List[Dict[str, Any]]
+    total: int = -1
 
 class RawQueryRequest(BaseModel):
     sql: str
     macros: Optional[Dict[str, str]] = Field(default_factory=dict)
+    limit: Optional[int] = None
+    offset: Optional[int] = 0
 
 class DrillThroughRequest(BaseModel):
     raw_sql: str
     filters: Dict[str, Any]
     clicked_metric: Optional[str] = None  # 用户点击的具体指标别名/列名
     macros: Optional[Dict[str, str]] = Field(default_factory=dict)
+    limit: Optional[int] = None
+    offset: Optional[int] = 0
     limit: Optional[int] = 10
     offset: Optional[int] = 0
 
 class DrillThroughResult(BaseModel):
     columns: List[str]
     data: List[Dict[str, Any]]
+    total: int = -1
     total: int
 
 class DashboardWidgetDTO(BaseModel):
