@@ -253,7 +253,7 @@
               </div>
             </div>
 
-            <div class="result-box" style="height: 400px" v-if="editorColumns.length > 0">
+            <div class="result-box" style="height: 400px" v-if="editorColumns.length > 0" v-memo="[editorTableData, editorChartType, editorColumns, editorLoading, editorPage, editorPageSize, editorTotal, currentEditorQueryId]">
               <!-- 预览：Table -->
               <el-table 
                 v-if="editorChartType === 'table'"
