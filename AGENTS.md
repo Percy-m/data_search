@@ -36,7 +36,7 @@
 ## Frontend Architecture
 
 - **Performance with Large Data**: Vue's deep Proxy (`reactive`, `ref`) creates severe performance bottlenecks with large datasets or grid components. 
-  - **CRITICAL**: Must use `shallowReactive` and `markRaw` for large data arrays and ECharts/Grid items to ensure the `vue3-grid-layout` drag-and-drop engine remains performant.
+  - **CRITICAL**: Existing large result containers use `shallowReactive` / `shallowRef`; keep that pattern for large arrays and grid/widget state. Use `markRaw` when introducing immutable ECharts instances/options or third-party objects that must not be deeply proxied, so the `vue3-grid-layout` drag-and-drop engine remains performant.
 
 ## Query & Drill-down Design
 
@@ -50,5 +50,5 @@
 
 ## Testing & Tooling
 
-- **No Toolchain**: There are currently no established test suites, linters, or formatters. Do not proactively introduce arbitrary ones without explicit user direction.
+- **No Toolchain**: There are currently no established automated test suites, linters, or formatters. Do not proactively introduce arbitrary ones without explicit user direction.
 - **Acceptance Criteria**: Refer to `TEST_PLAN.md` for business scenario checklists and manual acceptance test criteria.

@@ -119,9 +119,10 @@ ASTSvc --> CHAdapter : AST 改写 (LIMIT 1 BY, DISTINCT)
 @startuml
 participant "Browser (Vue App)" as Vue
 participant "FastAPI (Uvicorn Worker)" as FastAPI
+participant "DataSourceFactory" as Factory
 participant "sqlglot (Parser)" as Parser
 database "PostgreSQL (Meta DB)" as Postgres
-database "ClickHouse (Business DB)" as ClickHouse
+database "ClickHouse / DuckDB\n(Business Data Source)" as BusinessDB
 
 Vue -> FastAPI : POST /api/v1/data/drill-through \n(Header: x-data-source-id, Body: sql, clicked_metric)
 activate FastAPI
@@ -131,22 +132,23 @@ activate Postgres
 Postgres --> FastAPI : 返回 Host, Port, Password 等
 deactivate Postgres
 
-FastAPI -> FastAPI : DataSourceFactory 动态实例化 ClickHouseAdapter
+FastAPI -> Factory : 根据数据源 type 动态实例化 Adapter
+Factory --> FastAPI : ClickHouseAdapter / DuckDBAdapter
 
 FastAPI -> Parser : 传递原始 SQL 与被点击指标
 activate Parser
 Parser --> FastAPI : 提取基础 AST (FROM, JOIN, WHERE) \n+ 智能判断是否应用 LIMIT 1 BY
 deactivate Parser
 
-FastAPI -> ClickHouse : 执行 COUNT(*) 获取总分页数
-activate ClickHouse
-ClickHouse --> FastAPI : 返回 Total
-deactivate ClickHouse
+FastAPI -> BusinessDB : 执行 COUNT(*) 获取总分页数
+activate BusinessDB
+BusinessDB --> FastAPI : 返回 Total
+deactivate BusinessDB
 
-FastAPI -> ClickHouse : 执行重构后的底层查询 SQL (带 LIMIT/OFFSET)
-activate ClickHouse
-ClickHouse --> FastAPI : 返回宽表列与数据矩阵
-deactivate ClickHouse
+FastAPI -> BusinessDB : 执行重构后的底层查询 SQL (带 LIMIT/OFFSET)
+activate BusinessDB
+BusinessDB --> FastAPI : 返回宽表列与数据矩阵
+deactivate BusinessDB
 
 FastAPI --> Vue : 200 OK (Columns, Data, Total)
 deactivate FastAPI
@@ -239,11 +241,15 @@ node "Business Data Warehouse" {
   database "ClickHouse Cluster/Node" {
     [bi_demo DB] << Tables: orders, shipping, customers... >>
   }
+  database "DuckDB File / In-Memory" {
+    [Local Analytical DB] << Optional Adapter >>
+  }
 }
 
 [Vue 3 SPA] ..> [FastAPI Application] : HTTP / REST (8000)
 [FastAPI Application] ..> [bi_metadata DB] : TCP (5432) / SQLAlchemy
-[FastAPI Application] ..> [bi_demo DB] : TCP (8123) / ClickHouse Native
+[FastAPI Application] ..> [bi_demo DB] : TCP (8123) / clickhouse-connect
+[FastAPI Application] ..> [Local Analytical DB] : Local file path / DuckDB Python
 
 @enduml
 ```

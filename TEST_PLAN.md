@@ -16,7 +16,7 @@
 ### 2. 前端架构 (Vue 3 + Vite)
 * 核心业务视图集中在 `front-end/src/components/BiDashboard.vue`。
 * 分为三大标签页域：**数据看板 (Dashboards)**、**分析工作台 (Queries)**、**配置中心 (Data Sources)**。
-* 利用 `shallowReactive` 和 `markRaw` 彻底切断了大数组的深层 Proxy 开销，确保了拖拽引擎 (`vue3-grid-layout`) 的极致流畅。
+* 利用 `shallowReactive` 和 `shallowRef` 承载大数组与组件状态，必要时对不可变 ECharts 配置或第三方实例使用 `markRaw`，避免深层 Proxy 开销影响拖拽引擎 (`vue3-grid-layout`)。
 
 ---
 
@@ -75,7 +75,7 @@
   - **预期**：Repository 层能够通过显式 SQL (如 `delete from dashboard_widgets`) 手动清除中间关联数据，不留脏数据且不报错。
 - [ ] **TC-4.2 大数据量拖拽性能 (ShallowRef Test)**
   - **操作**：在看板加载包含数百列、千行的极宽表组件，进入“编辑模式”并拖拽调整位置大小。
-  - **预期**：全程丝滑不掉帧，因为 `shallowReactive` 成功阻断了 Vue Proxy 的深层递归代理瓶颈。
+  - **预期**：拖拽响应稳定，因为 `shallowReactive` / `shallowRef` 成功降低了 Vue Proxy 的深层递归代理开销。
 - [ ] **TC-4.3 全局宏提取与局部覆盖 (Macro Scoping)**
   - **操作**：在画布放置多个带有 `{{version}}` 宏的图表，为其中一个单独配置“局部参数覆盖”，另一个不配。
   - **预期**：
