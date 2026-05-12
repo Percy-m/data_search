@@ -4,7 +4,7 @@
 
 本项目旨在构建一个高扩展性、高抽象度的数据查询与可视化报表后端平台。系统采用**端口与适配器模式（六边形架构）**，实现了核心业务逻辑与底层基础设施（如数据源、Web 框架）的彻底解耦。
 
-在经过了多个阶段的演进后，本项目从最初的单一页面 SQL 工具，升级为一个包含动态数据源连接、组件化拖拽工作台、智能 AST 明细穿透的现代商业级企业 BI 报表引擎。
+在经过了多个阶段的演进后，本项目从最初的单一页面 SQL 工具，升级为一个包含动态数据源连接、组件化拖拽工作台、智能 AST 明细穿透和结果集数据对比的现代商业级企业 BI 报表引擎。
 
 ## 2. 后端架构 (Backend)
 
@@ -14,7 +14,7 @@
 
 *   **`core/` (核心层)**：系统的核心领域模型和接口定义。不依赖任何外部框架或具体的数据源实现。
     
-    *   `models.py`: 定义基于 Pydantic 的抽象查询验证模型（`QueryRequest`, `DrillDownRequest`, `DrillThroughRequest` 等）。
+    *   `models.py`: 定义基于 Pydantic 的抽象查询验证模型（`QueryRequest`, `DrillDownRequest`, `DrillThroughRequest`, `ComparisonRunRequest` 等）。
     *   `ports.py` & `factory.py`: 数据源与仓储抽象标准接口（提供获取表结构、执行查询的规范，以及元数据操作接口），以及管理动态实例化的 `DataSourceFactory`。
 *   **`infrastructure/` (基础设施层)**：数据库持久化具体实现。
     *   `orm_models.py`: SQLAlchemy ORM 模型，负责对接 PostgreSQL 存储引擎系统的全部元数据配置（如数据源连接池、看板画布、图表组件）。
@@ -24,10 +24,12 @@
     *   `clickhouse.py` / `duckdb.py`: 数据源适配器，实现了 `DataSourcePort` 接口，负责将抽象模型翻译为 SQL，直接与原生引擎通信。内部深度集成了 `sqlglot` 用于 AST 语法树智能解析和安全投影改写。
 *   **`services/` (服务层)**：业务逻辑层。
     *   `query.py`: `QueryService` 封装了标准的多维查询和通用下钻的算法实现。
+    *   `comparison.py`: `ComparisonService` 复用 `QueryService.raw_query()` 执行同一 SQL 的 baseline/target 两组宏版本，并完成主键对齐、容差比较、分组汇总和明细生成。
 *   **`api/` (接入层)**：HTTP 层 (Controllers)。
     *   `dashboards.py`: 大屏/画板的增删改查。
     *   `data_sources.py`: 数据源的动态连接注册与测试。
     *   `saved_queries.py`: 查询图表组件（Widget）的增删改查。
+    *   `comparisons.py`: 独立数据对比配置的增删改查。
     *   `routes.py`: 核心代理端点，负责根据请求头的环境变量 (`x-data-source-id`) 调用工厂，并将请求分发至相应的 Adapter 服务执行引擎查询或智能下钻。
 *   **`main.py`**: 系统入口、中间件装配、元数据库引擎拉起。
 
@@ -59,6 +61,11 @@
 - **生命周期 (TTL)**：缓存有效期设为 7 天。
 - **唯一指纹 (Fingerprint)**：每次请求利用 `SHA-256` 将数据源 ID、SQL 文本与宏变量配置字典等参数组合散列为唯一键值，确保条件发生任何细微变动时皆能精准穿透。
 
+#### 数据对比服务 (Data Comparison)
+“数据对比”作为独立领域能力实现，不复用 Saved Query，不进入 Dashboard Widget。用户提交一段 SQL，并分别配置 baseline 与 target 两组宏变量。后端以相同 SQL 调用两次 `QueryService.raw_query()`，因此宏变量白名单、缓存和数据源适配逻辑保持一致。
+
+对比算法以用户指定的主键列组合对齐两侧结果集，任一侧出现重复 key 即拒绝执行。两侧都有的行按对比标准判定一致或不一致；仅存在于 target 的 key 计为 `baseline_missing`，仅存在于 baseline 的 key 计为 `target_missing`。汇总按分组列和对比标准聚合，一致率只使用一致与不一致作为分母，缺失单独展示。
+
 ## 3. 前端架构 (Frontend)
 
 前端作为承载可视化与数据分析的门户，基于 **Vue 3 (Composition API) + Vite** 构建，采用了成熟的高级组件生态来支持极客编辑与图表拖拽。
@@ -70,7 +77,7 @@
 *   **可视化图表**：Apache ECharts + `vue-echarts`
 
 ### 3.2 UI 视图模块设计
-为了兼顾不同类型用户（分析师、业务阅读方、管理员），前端功能被剥离进三个独立的标签页空间（在 `BiDashboard.vue` 内实现）：
+为了兼顾不同类型用户（分析师、业务阅读方、管理员），前端功能被剥离进四个独立的标签页空间：
 
 1.  **配置中心 (Data Source Management)**
     *   偏向 DevOps 与管理员角色，用于登记、验证和打通底层的数据库。
@@ -79,6 +86,8 @@
 3.  **数据看板阅览区 (Dashboards Viewer)**
     *   偏向最终业务方的展示层。这块视图纯粹且无代码干扰。基于 `vue-grid-layout` 实现**大屏无限画布**，用户可以将已造好的图表组件拖入，自由调整坐标、大小。
     *   同时，这里也提供了各组件的独立预警阈值入口（**条件格式高亮**），所有呈现在画布上的 ECharts 图表或 Table 均共享全局的 Drill-through（智能穿透）监听交互功能。
+4.  **数据对比工作区 (Comparison Workspace)**
+    *   由独立 `ComparisonWorkspace.vue` 承载。用户配置数据源、SQL、baseline/target 宏变量、主键列、分组列和对比标准后运行对比。汇总表中的一致、不一致和缺失数量可点击打开对比明细弹窗，并支持导出 Excel。
 
 ### 3.3 交互状态隔离管理
 前端充分利用了 Composition API 的特质，在不引入全局 Pinia 的情况下实现了三大 Tab 块之间的**数据物理隔离**。比如在看板区展示的数据结果集合与在 SQL 工作台中调试用的验证集合互相独立，极大增强了修改测试阶段的安全性和无缝连贯的操作体验。

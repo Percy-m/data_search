@@ -23,6 +23,8 @@ rectangle "BI 可视化分析平台" {
   usecase "物理表探查与查数" as UC2
   usecase "编写SQL并调试预警" as UC3
   usecase "保存为Query图表组件" as UC4
+  usecase "配置并运行数据对比" as UC9
+  usecase "查看对比明细并导出" as UC10
   
   usecase "创建并编辑数据看板" as UC5
   usecase "组件拖拽与尺寸布局" as UC6
@@ -35,6 +37,8 @@ Admin --> UC1
 Analyst --> UC2
 Analyst --> UC3
 Analyst --> UC4
+Analyst --> UC9
+Analyst --> UC10
 Analyst --> UC5
 Analyst --> UC6
 
@@ -44,6 +48,7 @@ BusinessUser --> UC8
 UC8 .> UC2 : <<includes>> \n (底层宽表数据获取)
 UC4 .> UC3 : <<extends>>
 UC6 .> UC5 : <<extends>>
+UC10 .> UC9 : <<extends>>
 
 @enduml
 ```
@@ -59,8 +64,10 @@ skinparam componentStyle uml2
 
 package "Frontend (Vue 3)" {
   [BiDashboard Component] as Dashboard
+  [ComparisonWorkspace Component] as ComparisonUI
   [ECharts & Vue Grid Layout] as UI_Libs
   Dashboard --> UI_Libs : 渲染图表与无限画布
+  Dashboard --> ComparisonUI : 挂载数据对比 Tab
 }
 
 package "Backend (FastAPI - Hexagonal Architecture)" {
@@ -69,10 +76,12 @@ package "Backend (FastAPI - Hexagonal Architecture)" {
     [Routes] as Routes
     [Data Sources API] as DSApi
     [Dashboards API] as DashApi
+    [Comparisons API] as CompareApi
   }
 
   package "Service Layer (Domain Logic)" {
     [QueryService] as QuerySvc
+    [ComparisonService] as CompareSvc
     [AST Parser & Smart Projection] as ASTSvc
   }
   
@@ -93,10 +102,15 @@ package "Backend (FastAPI - Hexagonal Architecture)" {
 Dashboard ..> Routes : HTTP POST (SQL, AST Params)
 Dashboard ..> DSApi : CRUD
 Dashboard ..> DashApi : CRUD Layouts
+ComparisonUI ..> Routes : HTTP POST (Compare Run/Detail)
+ComparisonUI ..> CompareApi : CRUD Compare Configs
 
 Routes --> QuerySvc : 解析请求
+Routes --> CompareSvc : 执行结果集对比
+CompareSvc --> QuerySvc : 复用宏变量预编译与缓存查询
 DSApi --> Repositories : 调用仓储 CRUD
 DashApi --> Repositories : 保存画板配置
+CompareApi --> Repositories : 保存对比配置
 
 Repositories -up-|> RepoPort : 实现接口
 Repositories --> ORMModels : 数据库实体持久化
@@ -157,6 +171,33 @@ Vue -> Vue : 渲染弹窗表格，应用阈值条件高亮
 @enduml
 ```
 
+数据对比运行链路：
+
+```plantuml
+@startuml
+participant "Browser (ComparisonWorkspace)" as Vue
+participant "FastAPI" as FastAPI
+participant "ComparisonService" as CompareSvc
+participant "QueryService" as QuerySvc
+database "PostgreSQL (Meta DB)" as Postgres
+database "ClickHouse / DuckDB" as BusinessDB
+
+Vue -> FastAPI : POST /api/v1/data/compare\n(config or comparison_id)
+FastAPI -> Postgres : 可选读取 comparison_configs 与 data_sources
+Postgres --> FastAPI : 返回对比配置与连接配置
+FastAPI -> CompareSvc : 传入完整 ComparisonConfig
+CompareSvc -> QuerySvc : raw_query(SQL + baseline_macros)
+QuerySvc -> BusinessDB : 执行 baseline SQL
+BusinessDB --> QuerySvc : baseline rows
+CompareSvc -> QuerySvc : raw_query(SQL + target_macros)
+QuerySvc -> BusinessDB : 执行 target SQL
+BusinessDB --> QuerySvc : target rows
+CompareSvc -> CompareSvc : 主键对齐、重复 key 校验、分组汇总
+FastAPI --> Vue : summary / detail columns
+Vue -> Vue : 展示汇总表，点击计数加载对比明细
+@enduml
+```
+
 ---
 
 ## 4. 开发视图 (Development View)
@@ -169,6 +210,7 @@ folder "Project Root" {
     folder "src/" {
       folder "components/" {
         [BiDashboard.vue (All in one Tabs)]
+        [ComparisonWorkspace.vue]
       }
       [main.js (ECharts/ElementPlus init)]
     }
@@ -182,6 +224,7 @@ folder "Project Root" {
       [dashboards.py]
       [data_sources.py]
       [saved_queries.py]
+      [comparisons.py]
     }
     folder "core/" {
       [factory.py (DataSource Factory)]
@@ -199,6 +242,7 @@ folder "Project Root" {
     }
     folder "services/" {
       [query.py]
+      [comparison.py]
     }
     [main.py (FastAPI App)]
   }
@@ -233,7 +277,7 @@ node "Application Server" {
 
 node "Metadata Database Host (Docker)" {
   database "PostgreSQL 15 Container" {
-    [bi_metadata DB] << Schema: saved_queries, dashboards... >>
+    [bi_metadata DB] << Schema: saved_queries, dashboards, comparison_configs... >>
   }
 }
 

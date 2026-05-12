@@ -28,6 +28,14 @@
 | `x-data-source-id` | Header | 后端用于指定查询数据源的 HTTP 请求头 |
 | `QueryResult` | DTO | 后端查询结果结构，包含 `columns`、`data`、`total` |
 | `DrillThroughRequest` | DTO | 明细穿透请求结构，包含原 SQL、过滤上下文、点击指标、宏变量和分页 |
+| 数据对比 | Data Comparison | 同一 SQL 在 baseline/target 两组宏参数下输出结果集的差异核对 |
+| 对比配置 | Comparison Config | 保存数据源、SQL、两侧宏、主键列、分组列和对比标准的独立元数据 |
+| 基线 | Baseline | 数据对比中的参照侧结果集 |
+| 目标 | Target | 数据对比中被校验或新版本侧结果集 |
+| 对比标准 | Comparison Criterion | 包含标准名称、比较列、比较方式和容差的字段级判定规则 |
+| 一致率 | Match Rate | 数据对比中 `一致 / (一致 + 不一致)` 的比例，不把缺失计入分母 |
+| Baseline 缺失 | `baseline_missing` | 某个 key 只存在于 target，baseline 侧没有对应行 |
+| Target 缺失 | `target_missing` | 某个 key 只存在于 baseline，target 侧没有对应行 |
 
 ## 后续术语追加区
 
@@ -36,4 +44,3 @@
 | :--- | :--- | :--- |
 |  |  |  |
 ```
-

@@ -58,7 +58,19 @@
 - 深色背景应自动切换为浅色文字，保证可读性。
 - Excel 导出应尽量保留表格数据和阈值样式。
 
-## 8. 后续规则追加区
+## 8. 数据对比规则
+
+- 数据对比配置是独立元数据对象，不保存为 Saved Query，也不作为 Dashboard Widget 使用。
+- 第一版只支持同一 SQL 在 baseline 和 target 两组宏参数下的输出结果对比。
+- 对比发生在 SQL 输出结果集层面；复杂 JOIN、聚合和计算字段均由用户 SQL 决定。
+- baseline 与 target 输出列名必须一致，主键列、分组列和比较列均引用输出列名。
+- 主键列组合必须在 baseline 和 target 各自结果集中唯一；重复 key 必须拒绝运行。
+- 仅 baseline 存在的 key 计为 `target_missing`，仅 target 存在的 key 计为 `baseline_missing`。
+- 汇总一致率按 `matched_count / (matched_count + mismatched_count)` 计算，缺失单独展示。
+- 单侧默认最大对比行数为 `100000`，超过时后端中止并提示缩小 SQL 范围。
+- 对比明细展示 key、分组、baseline/target 值、差值、变化率、差异字段和状态，不继续触发原始底表 Drill-through。
+
+## 9. 后续规则追加区
 
 后续新增规则按以下格式追加：
 
@@ -69,4 +81,3 @@
 - 例外情况：
 - 影响的验收标准：
 ```
-

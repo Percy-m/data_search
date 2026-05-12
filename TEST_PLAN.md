@@ -10,12 +10,12 @@
 * **`core/` (领域核心层)**: 不依赖框架的纯领域模型（`models.py` 的 DTOs）和抽象接口（`ports.py` 的 DataSourcePort、RepositoryPort）。
 * **`infrastructure/` (基础设施层)**: 数据库持久化实现。已**全面剥离物理外键**，依靠 `repositories.py` 中的逻辑接管数据聚合拼接，使用 SQLAlchemy 构建 `orm_models.py`。
 * **`adapters/` (适配器层)**: 具体的数据库方言适配器（如 `clickhouse.py`, `duckdb.py`），将抽象指令转为物理查询。
-* **`services/` (服务层)**: `query.py` 提供 AST 语法树智能下钻、宏参数正则预编译替换以及 LRU 查询缓存。
+* **`services/` (服务层)**: `query.py` 提供 AST 语法树智能下钻、宏参数正则预编译替换以及 LRU 查询缓存；`comparison.py` 提供结果集数据对比。
 * **`api/` (应用接入层)**: 瘦控制器（Thin Controllers），负责 HTTP 路由及依赖注入。
 
 ### 2. 前端架构 (Vue 3 + Vite)
 * 核心业务视图集中在 `front-end/src/components/BiDashboard.vue`。
-* 分为三大标签页域：**数据看板 (Dashboards)**、**分析工作台 (Queries)**、**配置中心 (Data Sources)**。
+* 分为四大标签页域：**数据看板 (Dashboards)**、**分析工作台 (Queries)**、**数据对比 (Compare)**、**配置中心 (Data Sources)**。
 * 利用 `shallowReactive` 和 `shallowRef` 承载大数组与组件状态，必要时对不可变 ECharts 配置或第三方实例使用 `markRaw`，避免深层 Proxy 开销影响拖拽引擎 (`vue3-grid-layout`)。
 
 ---
@@ -105,3 +105,31 @@
 - [ ] **TC-6.2 带有阈值样式的导出 (Style preservation)**
   - **操作**：给图表配置阈值红绿灯，点击导出，打开下载的文件。
   - **预期**：Excel 单元格的背景色 (Pattern/ARGB) 和字体颜色与网页上看到的实时渲染效果完美 1:1 对齐同步。
+
+### 场景 7：数据对比 (Data Comparison)
+**目标**：验证同一 SQL 在 baseline/target 两组宏参数下的结果集对比、汇总、明细和配置持久化。
+
+- [ ] **TC-7.1 完全一致结果集**
+  - **操作**：配置 baseline 和 target 指向相同版本，主键列和比较列相同后运行。
+  - **预期**：汇总一致数正确，不一致、baseline 缺失、target 缺失均为 0。
+- [ ] **TC-7.2 字段值不一致**
+  - **操作**：构造两侧都有同一 key 但比较列数值不同的结果。
+  - **预期**：不一致数增加，点击后明细展示 key、baseline 值、target 值、差值、变化率和差异字段。
+- [ ] **TC-7.3 baseline-only 与 target-only**
+  - **操作**：构造只存在于 baseline 和只存在于 target 的 key。
+  - **预期**：分别计入 target 缺失和 baseline 缺失，点击数量可打开对应明细。
+- [ ] **TC-7.4 分组汇总**
+  - **操作**：配置一个或多个分组列运行对比。
+  - **预期**：每个分组独立统计 baseline/target 数量、一致、不一致、缺失和一致率。
+- [ ] **TC-7.5 容差比较**
+  - **操作**：对数值列配置绝对容差或百分比容差。
+  - **预期**：容差内判定一致，容差外判定不一致。
+- [ ] **TC-7.6 宏变量与复杂 SQL**
+  - **操作**：SQL 使用 `{{version}}` 切换表版本，且 SQL 可包含 JOIN、聚合或计算字段。
+  - **预期**：baseline/target 宏分别生效；系统只按 SQL 输出列进行对比。
+- [ ] **TC-7.7 异常边界**
+  - **操作**：分别测试重复 key、非法宏变量、单侧超过最大对比行数。
+  - **预期**：后端拒绝执行并返回清晰错误。
+- [ ] **TC-7.8 配置持久化与导出**
+  - **操作**：保存、更新、删除对比配置并刷新页面；导出汇总和明细 Excel。
+  - **预期**：配置列表状态正确，导出的 Excel 可打开且列和值正确。

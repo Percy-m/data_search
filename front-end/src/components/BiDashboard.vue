@@ -304,6 +304,10 @@
           </el-main>
         </el-container>
       </el-tab-pane>
+      <!-- Tab 4: 数据对比 (Comparisons) -->
+      <el-tab-pane label="数据对比 (Compare)" name="comparison">
+        <ComparisonWorkspace />
+      </el-tab-pane>
       <!-- Tab 3: 配置中心 (Data Sources) - Moved to bottom -->
       <el-tab-pane label="配置中心 (Data Sources)" name="datasource">
         <div class="ds-container">
@@ -481,6 +485,7 @@ import { Delete, Edit, Plus, Menu, Check, Close, Filter, DataLine, Download } fr
 import { GridLayout, GridItem } from 'vue3-grid-layout'
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
+import ComparisonWorkspace from './ComparisonWorkspace.vue'
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1/data'
 const META_API_BASE = 'http://127.0.0.1:8000/api/v1/saved-queries'

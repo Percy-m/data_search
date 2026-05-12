@@ -57,6 +57,10 @@ class SavedQueryRepositoryPort(MetadataRepository):
     @abstractmethod
     def get_by_name(self, name: str) -> Any: pass
 
+class ComparisonConfigRepositoryPort(MetadataRepository):
+    @abstractmethod
+    def get_by_name(self, name: str) -> Any: pass
+
 class DashboardRepositoryPort(MetadataRepository):
     @abstractmethod
     def get_by_name(self, name: str) -> Any: pass

@@ -1,4 +1,4 @@
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Literal
 from pydantic import BaseModel, Field
 
 class Filter(BaseModel):
@@ -67,3 +67,35 @@ class DashboardAggregateDTO(BaseModel):
     description: Optional[str]
     created_at: Any
     widgets: List[DashboardWidgetDTO] = []
+
+class ComparisonCriterion(BaseModel):
+    name: str
+    column: str
+    mode: Literal["strict_equal", "absolute_tolerance", "percent_tolerance"] = "strict_equal"
+    tolerance: Optional[float] = None
+
+class ComparisonConfigPayload(BaseModel):
+    name: Optional[str] = None
+    data_source_id: Optional[int] = None
+    raw_sql: str
+    baseline_name: str = "baseline"
+    target_name: str = "target"
+    baseline_macros: Dict[str, str] = Field(default_factory=dict)
+    target_macros: Dict[str, str] = Field(default_factory=dict)
+    key_columns: List[str] = Field(default_factory=list)
+    group_columns: List[str] = Field(default_factory=list)
+    criteria: List[ComparisonCriterion] = Field(default_factory=list)
+    compare_columns: List[str] = Field(default_factory=list)
+    max_rows: int = 100000
+
+class ComparisonRunRequest(BaseModel):
+    comparison_id: Optional[int] = None
+    config: Optional[ComparisonConfigPayload] = None
+    overrides: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+class ComparisonDetailRequest(ComparisonRunRequest):
+    group_values: Dict[str, Any] = Field(default_factory=dict)
+    criterion_name: Optional[str] = None
+    status: Literal["match", "mismatch", "baseline_missing", "target_missing"]
+    limit: int = 100
+    offset: int = 0

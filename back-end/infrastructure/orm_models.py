@@ -30,6 +30,28 @@ class SavedQuery(Base):
     chart_type = Column(String(50), default="table") # 图表类型: table, bar, pie, line
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+class ComparisonConfig(Base):
+    """
+    独立的数据对比配置。
+    V1 支持同一 SQL 在 baseline / target 两组宏参数下的结果集对比。
+    """
+    __tablename__ = "comparison_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True, index=True)
+    data_source_id = Column(Integer, index=True, nullable=True) # 关联数据源，去掉 ForeignKey
+    raw_sql = Column(Text, nullable=False)
+    baseline_name = Column(String(100), default="baseline")
+    target_name = Column(String(100), default="target")
+    baseline_macros = Column(JSON, default=dict)
+    target_macros = Column(JSON, default=dict)
+    key_columns = Column(JSON, default=list)
+    group_columns = Column(JSON, default=list)
+    criteria = Column(JSON, default=list)
+    compare_columns = Column(JSON, default=list)
+    max_rows = Column(Integer, default=100000)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
 class Dashboard(Base):
     """
     数据看板画布

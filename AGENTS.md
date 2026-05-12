@@ -31,6 +31,7 @@
   - **No Physical Foreign Keys**: Physical foreign keys have been stripped from `orm_models.py`. Logical aggregation is handled in `repositories.py`.
 - `back-end/adapters/`: Concrete DB implementations (e.g., `clickhouse.py`, `duckdb.py`). All SQL translation lives here.
 - `back-end/services/`: Core business logic (`query.py`). Operates purely on `DataSourcePort`.
+- `back-end/services/comparison.py`: Independent data comparison logic. It reuses `QueryService.raw_query()` for baseline/target execution and compares SQL output rows by configured keys.
 - `back-end/api/`: FastAPI routes. Dynamically instantiates the correct adapter via `x-data-source-id` header fetching config from PostgreSQL.
 
 ## Frontend Architecture
@@ -47,6 +48,14 @@
 - **Dynamic Table Mapping (Macro Variables)**: 
   - Frontend passes `macros: Dict[str, str]`.
   - **CRITICAL**: Backend uses **string-level pre-compilation (regex whitelist)** in `QueryService` *before* AST parsing, **not** AST replacement. This is because `{}` (e.g., `{{version}}`) is incorrectly parsed as Map/Dictionary literals by `sqlglot` in ClickHouse dialect, breaking the AST.
+
+## Data Comparison Design
+
+- Data comparison is an independent metadata object stored in `comparison_configs`; do not fold it into `saved_queries` or Dashboard widgets.
+- V1 compares the output of the same SQL under two macro dictionaries: `baseline_macros` and `target_macros`.
+- Duplicate configured key values must be rejected server-side.
+- Missing semantics are directional: key only in target is `baseline_missing`; key only in baseline is `target_missing`.
+- Detail drill-in for comparison shows comparison rows only; it does not perform underlying table Drill-through.
 
 ## Testing & Tooling
 

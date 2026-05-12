@@ -51,7 +51,29 @@
 
 ---
 
-## 4. 看板布局明细表 (`dashboard_widgets`)
+## 4. 数据对比配置表 (`comparison_configs`)
+保存独立“数据对比”栏目中的对比任务配置。该表不复用 `saved_queries`，避免污染单查询/单 Widget 假设。
+
+| 字段名 | 数据类型 | 属性 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | Integer | PK, Auto Increment | 唯一主键 |
+| `name` | String(255) | Not Null, Unique, Index | 对比配置名称 |
+| `data_source_id` | Integer | Nullable, Index | 该对比关联的数据源 ID |
+| `raw_sql` | Text | Not Null | 被对比的原始 SQL；baseline/target 使用同一 SQL |
+| `baseline_name` | String(100) | Default `'baseline'` | 基线侧展示名称 |
+| `target_name` | String(100) | Default `'target'` | 目标侧展示名称 |
+| `baseline_macros` | JSON | Default `{}` | baseline 侧宏变量字典 |
+| `target_macros` | JSON | Default `{}` | target 侧宏变量字典 |
+| `key_columns` | JSON | Default `[]` | 用于对齐两侧结果的主键列列表 |
+| `group_columns` | JSON | Default `[]` | 汇总分组列列表 |
+| `criteria` | JSON | Default `[]` | 对比标准列表，包含名称、比较列、比较方式和容差 |
+| `compare_columns` | JSON | Default `[]` | 兼容简化配置的比较列列表 |
+| `max_rows` | Integer | Default `100000` | 单侧最大拉取行数，超过即拒绝对比 |
+| `created_at` | DateTime | Default UTC Now | 记录创建时间 |
+
+---
+
+## 5. 看板布局明细表 (`dashboard_widgets`)
 记录某一个具体看板 (`dashboards.id`) 上摆放了哪些组件 (`saved_queries.id`)，以及它们在无限画布上的绝对坐标和长宽。
 
 | 字段名 | 数据类型 | 属性 | 描述 |

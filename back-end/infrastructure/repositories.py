@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from core.ports import DataSourceRepositoryPort, SavedQueryRepositoryPort, DashboardRepositoryPort
-from infrastructure.orm_models import DataSource, SavedQuery, Dashboard, DashboardWidget
+from core.ports import DataSourceRepositoryPort, SavedQueryRepositoryPort, ComparisonConfigRepositoryPort, DashboardRepositoryPort
+from infrastructure.orm_models import DataSource, SavedQuery, ComparisonConfig, Dashboard, DashboardWidget
 from core.models import DashboardAggregateDTO, DashboardWidgetDTO
 
 class SQLAlchemyDataSourceRepository(DataSourceRepositoryPort):
@@ -75,6 +75,43 @@ class SQLAlchemySavedQueryRepository(SavedQueryRepositoryPort):
         if query:
             self.db.query(DashboardWidget).filter(DashboardWidget.query_id == id).delete()
             self.db.delete(query)
+            self.db.commit()
+            return True
+        return False
+
+class SQLAlchemyComparisonConfigRepository(ComparisonConfigRepositoryPort):
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_by_id(self, id: int) -> Optional[ComparisonConfig]:
+        return self.db.query(ComparisonConfig).filter(ComparisonConfig.id == id).first()
+
+    def get_by_name(self, name: str) -> Optional[ComparisonConfig]:
+        return self.db.query(ComparisonConfig).filter(ComparisonConfig.name == name).first()
+
+    def get_all(self) -> List[ComparisonConfig]:
+        return self.db.query(ComparisonConfig).order_by(ComparisonConfig.created_at.desc()).all()
+
+    def create(self, data: Dict[str, Any]) -> ComparisonConfig:
+        new_config = ComparisonConfig(**data)
+        self.db.add(new_config)
+        self.db.commit()
+        self.db.refresh(new_config)
+        return new_config
+
+    def update(self, id: int, data: Dict[str, Any]) -> Optional[ComparisonConfig]:
+        config = self.get_by_id(id)
+        if config:
+            for key, value in data.items():
+                setattr(config, key, value)
+            self.db.commit()
+            self.db.refresh(config)
+        return config
+
+    def delete(self, id: int) -> bool:
+        config = self.get_by_id(id)
+        if config:
+            self.db.delete(config)
             self.db.commit()
             return True
         return False
@@ -170,7 +207,6 @@ class SQLAlchemyDashboardRepository(DashboardRepositoryPort):
             self.db.commit()
             return True
         return False
-
 
 
 
