@@ -13,6 +13,15 @@
 > **🧪 测试规范**：
 > - 业务场景梳理与验收测试用例：[TEST_PLAN.md](./TEST_PLAN.md)
 
+> **🧭 SDD 用户侧输入文档**：
+> - 产品需求：[PRD.md](./PRD.md)
+> - 业务规则：[BUSINESS_RULES.md](./BUSINESS_RULES.md)
+> - 路线图：[ROADMAP.md](./ROADMAP.md)
+> - 验收标准：[ACCEPTANCE_CRITERIA.md](./ACCEPTANCE_CRITERIA.md)
+> - 领域术语：[DOMAIN_GLOSSARY.md](./DOMAIN_GLOSSARY.md)
+> - 数据源说明：[DATA_SOURCE_SPEC.md](./DATA_SOURCE_SPEC.md)
+> - 项目约束：[CONSTRAINTS.md](./CONSTRAINTS.md)
+
 ## 1. 架构与设计 (Backend)
 
 后端严格遵循 **端口与适配器模式（六边形架构）**，实现了核心业务逻辑与底层基础设施的彻底解耦。
