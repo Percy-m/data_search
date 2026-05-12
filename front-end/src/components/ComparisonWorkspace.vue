@@ -32,7 +32,6 @@
           <el-select v-model="form.data_source_id" placeholder="选择数据源" class="source-select">
             <el-option v-for="ds in dataSources" :key="ds.id" :label="ds.name" :value="ds.id" />
           </el-select>
-          <el-input-number v-model="form.max_rows" :min="1" :max="500000" :step="10000" controls-position="right" class="max-rows" />
         </div>
 
         <el-input
@@ -119,7 +118,7 @@
       </div>
 
       <div class="summary-panel" v-if="summaryRows.length > 0">
-        <el-table :data="summaryRows" border stripe height="100%" v-loading="running">
+        <el-table :data="summaryPagedRows" border stripe height="100%" class="summary-table" v-loading="running">
           <el-table-column v-for="col in resultColumns" :key="col" :prop="col" :label="columnLabel(col)" min-width="130">
             <template #default="scope">
               <el-button
@@ -134,6 +133,18 @@
             </template>
           </el-table-column>
         </el-table>
+        <div class="pagination-box summary-pagination">
+          <el-pagination
+            background
+            layout="total, sizes, prev, pager, next"
+            :total="summaryRows.length"
+            :page-sizes="[50, 100, 200]"
+            :page-size="summaryPageSize"
+            :current-page="summaryPage"
+            @size-change="handleSummaryPageSizeChange"
+            @current-change="handleSummaryPageChange"
+          />
+        </div>
       </div>
     </el-main>
 
@@ -159,7 +170,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, ref, shallowRef } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import ExcelJS from 'exceljs'
@@ -194,6 +205,8 @@ const targetMacros = ref([{ key: 'version', value: 'target' }])
 
 const resultColumns = ref([])
 const summaryRows = shallowRef([])
+const summaryPage = ref(1)
+const summaryPageSize = ref(50)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailColumns = ref([])
@@ -209,6 +222,11 @@ const statusByColumn = {
   baseline_missing_count: 'baseline_missing',
   target_missing_count: 'target_missing',
 }
+
+const summaryPagedRows = computed(() => {
+  const start = (summaryPage.value - 1) * summaryPageSize.value
+  return summaryRows.value.slice(start, start + summaryPageSize.value)
+})
 
 const fetchDataSources = async () => {
   try {
@@ -267,6 +285,7 @@ const runCompare = async () => {
     const res = await axios.post(`${DATA_API_BASE}/compare`, { config: payload })
     resultColumns.value = res.data.columns
     summaryRows.value = res.data.summary
+    summaryPage.value = 1
     ElMessage.success('对比完成')
   } catch (e) {
     ElMessage.error(e.response?.data?.detail || e.message || '对比失败')
@@ -335,6 +354,7 @@ const loadComparison = (item) => {
   targetMacros.value = dictToMacroRows(item.target_macros)
   summaryRows.value = []
   resultColumns.value = []
+  summaryPage.value = 1
 }
 
 const resetForm = () => {
@@ -345,6 +365,7 @@ const resetForm = () => {
   targetMacros.value = [{ key: 'version', value: 'target' }]
   summaryRows.value = []
   resultColumns.value = []
+  summaryPage.value = 1
 }
 
 const addCriterion = () => {
@@ -352,6 +373,15 @@ const addCriterion = () => {
 }
 
 const isClickableCount = (col) => ['matched_count', 'mismatched_count', 'baseline_missing_count', 'target_missing_count'].includes(col)
+
+const handleSummaryPageSizeChange = (size) => {
+  summaryPageSize.value = size
+  summaryPage.value = 1
+}
+
+const handleSummaryPageChange = (page) => {
+  summaryPage.value = page
+}
 
 const openDetail = (row, status) => {
   currentDetail.value = {
@@ -429,7 +459,7 @@ const columnLabel = (col) => ({
   change_rate: '变化率',
   diff_fields: '差异字段',
   status: '状态',
-}[col] || col)
+}[col] || (form.value.group_columns?.includes(col) ? `业务名目/分组: ${col}` : col))
 
 const formatCell = (value, col) => {
   if (value === null || value === undefined) return ''
@@ -473,7 +503,6 @@ onMounted(() => {
 .form-row, .field-row, .action-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .name-input { width: 260px; }
 .source-select { width: 220px; }
-.max-rows { width: 160px; }
 .sql-input { font-family: 'Courier New', Courier, monospace; margin-bottom: 12px; }
 .side-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .side-block { border: 1px solid #ebeef5; border-radius: 6px; padding: 12px; background: #fafafa; }
@@ -485,8 +514,10 @@ onMounted(() => {
 .criteria-table { margin-bottom: 12px; }
 .tolerance-input { width: 100%; }
 .action-bar { justify-content: space-between; margin-bottom: 0; }
-.summary-panel { flex: 1; min-height: 260px; margin-top: 12px; overflow: hidden; }
+.summary-panel { flex: 1; min-height: 260px; margin-top: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.summary-table { flex: 1; min-height: 0; }
 .detail-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; }
 .detail-tag { margin-right: 8px; }
 .pagination-box { margin-top: 14px; display: flex; justify-content: flex-end; }
+.summary-pagination { flex-shrink: 0; }
 </style>

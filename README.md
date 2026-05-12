@@ -38,7 +38,7 @@
 - **抽象语法树 (AST) 查询**：采用 Pydantic 定义通用的查询请求体（Dimensions, Metrics, Filters），保证业务层无需关心底层数据库。
 - **安全的 SQL 解析层**：引入 `sqlglot` 提供 Raw SQL 到 AST 的双向解析能力，保证在进行明细查询（Drill-through）时不会由于前端字符串拼接导致 SQL 注入或语法崩溃。
 - **安全宏变量与缓存**：`QueryService` 在 SQL 进入 AST 解析前完成 `{{macro}}` 字符串级白名单替换，并通过 `cachetools.TTLCache` 对原生查询结果进行单 Worker 内存缓存。
-- **独立数据对比**：`ComparisonService` 复用 `QueryService.raw_query()`，支持同一 SQL 在 baseline/target 两组宏变量下的主键对齐、分组汇总、容差比较和明细输出。
+- **独立数据对比**：`ComparisonService` 复用 `QueryService.raw_query()`，支持同一 SQL 在 baseline/target 两组宏变量下的主键对齐、分组汇总、容差比较和明细输出；后端保留单侧 100000 行安全阈值，前端对汇总结果做展示分页。
 - **两种多维分析模式**：
   - **Drill-down (聚合下钻)**：作为纯粹的数据结构转换操作（保留指标，替换维度，叠加路径过滤条件），适用于图表层级的层层深挖。
   - **Drill-through (明细穿透)**：允许用户在查看复杂的原生 SQL 聚合指标时，安全地穿透到底层明细表查看原始级数据。后端支持**“智能穿透” (Smart Projection)**，能根据用户点击的不同指标（如 `count(*)` vs `count(DISTINCT customer_id)`）自动切换底层查询投影，返回最匹配意图的细粒度清单或全量宽表。
@@ -52,7 +52,7 @@
 1. **配置中心 (Data Sources)**：UI 化的数据源连接池管理。用户可以配置 ClickHouse 的 Host, Port 及账号密码，也可以配置 DuckDB 文件路径；保存时系统会主动执行连接测试保证连通性。
 2. **分析工作台 (Queries)**：供分析师使用的极客界面。通过切换数据源，左侧会自动渲染出该库底下的**所有表结构（Table Tree）**。点击表名快速填充 SQL，在右侧执行复杂原生 SQL 调试。不仅支持表格，还支持**一键切换可视化图表类型 (Bar/Line/Pie)**。调试完成后，可将其固化为 **Query 组件**。
 3. **数据看板 (Dashboards)**：基于 Vue Grid Layout 与 ECharts 驱动的**无限画布**。用户可以新建看板，并将多个 `Query 组件`（表格或各种图表）添加到画布中自由**拖拽、缩放**和排列组合。每个 Widget 支持独立配置**高亮（染色预警）规则**，表格数据支持分页。
-4. **数据对比 (Compare)**：独立工作区，支持配置同一 SQL 的 baseline/target 宏参数、主键列、分组列和对比标准，运行后查看汇总与明细并导出 Excel。
+4. **数据对比 (Compare)**：独立工作区，支持配置同一 SQL 的 baseline/target 宏参数、主键列、分组列和对比标准，运行后分页查看汇总、按需打开明细并导出 Excel。
 5. **可视化数据下钻 (Drill-through)**：全站共享的核心能力，即使在拖拽组合出的图表组件中，**点击 ECharts 柱体/饼块或表格指标**即可触发基于 AST 解析的智能下钻，穿透至底层明细。
 
 ## 3. 快速启动 (Getting Started)

@@ -76,7 +76,7 @@ class ComparisonService:
         ))
 
         if len(baseline.data) > config.max_rows or len(target.data) > config.max_rows:
-            raise ValueError(f"对比结果超过最大行数 {config.max_rows}，请缩小 SQL 范围后重试")
+            raise ValueError(f"对比结果超过最大行数 {config.max_rows}，请先聚合或缩小 SQL 范围后重试")
 
         self._validate_columns(config, baseline.columns, target.columns)
         return baseline, target
