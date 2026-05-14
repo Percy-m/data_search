@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#172033" flood-opacity="0.14"/>
+    </filter>
+    <style>
+      text { font-family: "STHeiti", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #182235; }
+      .small { font-size: 14px; fill: #64748b; }
+      .label { font-size: 16px; font-weight: 600; }
+      .title { font-size: 26px; font-weight: 700; }
+      .shell { fill: #f3f6fa; }
+      .panel { fill: #fff; stroke: #dbe3ed; stroke-width: 1; filter: url(#shadow); }
+      .card { fill: #fff; stroke: #dbe3ed; stroke-width: 1.2; rx: 12; }
+      .primary { fill: #2563eb; }
+      .tab { fill: #f8fafc; stroke: #dbe3ed; rx: 10; }
+      .tab-active { fill: #2563eb; stroke: #2563eb; rx: 10; }
+      .grid { stroke: #e2e8f0; stroke-width: 1; }
+    </style>
+  </defs>
+  <rect width="1440" height="900" class="shell"/>
+  <rect x="36" y="32" width="1368" height="84" rx="18" fill="#172033"/>
+  <text x="72" y="84" fill="#fff" font-size="28" font-weight="700">Dashboard 多页签高保真设计</text>
+  <text x="490" y="84" fill="#b9c5d4" font-size="16">同一个看板内按业务主题拆分页面，每个页签独立布局</text>
+
+  <rect x="36" y="138" width="260" height="706" rx="18" class="panel"/>
+  <text x="66" y="188" class="title">看板列表</text>
+  <rect x="66" y="220" width="200" height="42" rx="10" fill="#2563eb"/>
+  <text x="88" y="247" fill="#fff" font-size="16">经营分析大屏</text>
+  <rect x="66" y="280" width="200" height="42" rx="10" fill="#f8fafc" stroke="#dbe3ed"/>
+  <text x="88" y="307" class="label">供应链监控</text>
+  <rect x="66" y="340" width="200" height="42" rx="10" fill="#f8fafc" stroke="#dbe3ed"/>
+  <text x="88" y="367" class="label">财务月报</text>
+
+  <rect x="326" y="138" width="1078" height="706" rx="18" class="panel"/>
+  <text x="366" y="190" class="title">经营分析大屏</text>
+  <rect x="1122" y="158" width="108" height="42" rx="10" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="1148" y="185" fill="#2563eb" font-size="15" font-weight="700">编辑看板</text>
+  <rect x="1244" y="158" width="118" height="42" rx="10" fill="#16a34a"/>
+  <text x="1270" y="185" fill="#fff" font-size="15" font-weight="700">保存布局</text>
+
+  <rect x="366" y="218" width="138" height="42" class="tab-active"/>
+  <text x="401" y="245" fill="#fff" font-size="16" font-weight="700">销售概览</text>
+  <rect x="516" y="218" width="138" height="42" class="tab"/>
+  <text x="551" y="245" class="label">渠道表现</text>
+  <rect x="666" y="218" width="138" height="42" class="tab"/>
+  <text x="701" y="245" class="label">区域排行</text>
+  <rect x="816" y="218" width="138" height="42" class="tab"/>
+  <text x="851" y="245" class="label">异常预警</text>
+  <rect x="966" y="218" width="42" height="42" rx="10" fill="#f8fafc" stroke="#dbe3ed"/>
+  <text x="980" y="246" fill="#2563eb" font-size="24" font-weight="700">+</text>
+
+  <rect x="366" y="292" width="952" height="496" rx="16" fill="#f8fafc" stroke="#dbe3ed"/>
+  <g opacity="0.9">
+    <path d="M366 332 H1318 M366 372 H1318 M366 412 H1318 M366 452 H1318 M366 492 H1318 M366 532 H1318 M366 572 H1318 M366 612 H1318 M366 652 H1318 M366 692 H1318 M366 732 H1318" class="grid"/>
+    <path d="M446 292 V788 M526 292 V788 M606 292 V788 M686 292 V788 M766 292 V788 M846 292 V788 M926 292 V788 M1006 292 V788 M1086 292 V788 M1166 292 V788 M1246 292 V788" class="grid"/>
+  </g>
+
+  <rect x="396" y="322" width="420" height="210" class="card"/>
+  <text x="424" y="358" class="label">月度收入趋势</text>
+  <polyline points="430,478 500,450 570,460 640,404 710,386 780,350" fill="none" stroke="#2563eb" stroke-width="5"/>
+  <circle cx="780" cy="350" r="8" fill="#2563eb"/>
+  <text x="424" y="506" class="small">宏变量：version = 2026Q1</text>
+
+  <rect x="846" y="322" width="420" height="210" class="card"/>
+  <text x="874" y="358" class="label">区域收入排行</text>
+  <rect x="890" y="466" width="54" height="36" fill="#60a5fa"/>
+  <rect x="966" y="430" width="54" height="72" fill="#34d399"/>
+  <rect x="1042" y="386" width="54" height="116" fill="#f59e0b"/>
+  <rect x="1118" y="410" width="54" height="92" fill="#f87171"/>
+  <rect x="1194" y="368" width="54" height="134" fill="#a78bfa"/>
+  <line x1="884" y1="502" x2="1254" y2="502" stroke="#94a3b8" stroke-width="2"/>
+
+  <rect x="396" y="562" width="300" height="188" class="card"/>
+  <text x="424" y="598" class="label">核心指标卡</text>
+  <text x="424" y="650" fill="#2563eb" font-size="42" font-weight="700">3.82 亿</text>
+  <text x="424" y="692" class="small">同比 +12.4%，预警规则已生效</text>
+
+  <rect x="726" y="562" width="540" height="188" class="card"/>
+  <text x="754" y="598" class="label">明细表格组件</text>
+  <rect x="754" y="626" width="480" height="36" fill="#eef2f7"/>
+  <text x="776" y="650" class="small">区域</text>
+  <text x="944" y="650" class="small">收入</text>
+  <text x="1100" y="650" class="small">一致率</text>
+  <line x1="754" y1="678" x2="1234" y2="678" stroke="#e2e8f0"/>
+  <text x="776" y="704" class="small">华东</text>
+  <text x="944" y="704" class="small">89,240,000</text>
+  <text x="1100" y="704" class="small">98.60%</text>
+</svg>

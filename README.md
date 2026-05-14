@@ -13,6 +13,9 @@
 > **🧪 测试规范**：
 > - 业务场景梳理与验收测试用例：[TEST_PLAN.md](./TEST_PLAN.md)
 
+> **📐 设计文档**：
+> - 统一数据分析控制台设计文档：[my_design/design.md](./my_design/design.md)
+
 > **🧭 SDD 用户侧输入文档**：
 > - 产品需求：[PRD.md](./PRD.md)
 > - 业务规则：[BUSINESS_RULES.md](./BUSINESS_RULES.md)
