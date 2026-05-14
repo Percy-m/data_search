@@ -28,8 +28,8 @@
     </marker>
   </defs>
   <rect width="1440" height="900" fill="url(#bg)"/>
-  <text x="64" y="74" class="title">统一数据分析控制台设计总览</text>
-  <text x="64" y="110" class="muted">多数据源查询、拖拽看板、智能下钻、数据对比、自定义 Python 脚本视图</text>
+  <text x="64" y="74" class="title">可配置数据看板平台设计总览</text>
+  <text x="64" y="110" class="muted">4 月已具备看板底座；下一阶段实现数据对比、多页签、自定义 Python 脚本视图</text>
 
   <rect x="60" y="150" width="380" height="650" class="card"/>
   <text x="92" y="200" class="section">用户工作区</text>
@@ -41,16 +41,16 @@
   <text x="120" y="386" class="small">SQL 调试、宏变量、图表预览</text>
   <rect x="92" y="423" width="292" height="72" class="module amber"/>
   <text x="120" y="453" class="label">Dashboard 看板</text>
-  <text x="120" y="480" class="small">多页签、拖拽布局、阈值高亮</text>
+  <text x="120" y="480" class="small">已具备单页拖拽；待实现多页签</text>
   <rect x="92" y="517" width="292" height="72" class="module purple"/>
-  <text x="120" y="547" class="label">数据对比</text>
+  <text x="120" y="547" class="label">数据对比（待实现）</text>
   <text x="120" y="574" class="small">Baseline / Target 主键对齐</text>
   <rect x="92" y="611" width="292" height="72" class="module red"/>
-  <text x="120" y="641" class="label">自定义 Python 视图</text>
+  <text x="120" y="641" class="label">自定义 Python 视图（待实现）</text>
   <text x="120" y="668" class="small">上传脚本、运行、展示 PNG 产物</text>
 
   <rect x="530" y="150" width="420" height="650" class="card"/>
-  <text x="562" y="200" class="section">后端业务能力</text>
+  <text x="562" y="200" class="section">后端业务能力与扩展</text>
   <rect x="570" y="238" width="320" height="92" class="module blue"/>
   <text x="602" y="272" class="label">FastAPI API Layer</text>
   <text x="602" y="300" class="small">data / dashboards / comparisons / sources</text>
@@ -58,7 +58,7 @@
   <text x="602" y="404" class="label">QueryService</text>
   <text x="602" y="432" class="small">宏变量预编译、缓存、原生 SQL 查询</text>
   <rect x="570" y="502" width="320" height="92" class="module purple"/>
-  <text x="602" y="536" class="label">ComparisonService</text>
+  <text x="602" y="536" class="label">ComparisonService 设计</text>
   <text x="602" y="564" class="small">主键对齐、分组汇总、明细分页</text>
   <rect x="570" y="634" width="320" height="92" class="module amber"/>
   <text x="602" y="668" class="label">Script Runtime 设计</text>
